@@ -38,8 +38,10 @@ SCOPUS_QUERY_PADRAO = os.getenv("SCOPUS_QUERY", "").strip()
 # consome quota. Se um dia a assinatura liberar COMPLETE, basta trocar aqui.
 SCOPUS_VIEW = os.getenv("SCOPUS_VIEW", "STANDARD").strip() or "STANDARD"
 
-# Teto de artigos por busca. A Scopus pagina de 25 em 25 na view STANDARD.
-MAX_RESULTADOS_PADRAO = int(os.getenv("MAX_RESULTADOS", "200"))
+# A busca traz todos os resultados da query. Este teto nao e uma opcao de
+# interface: e um freio para que uma query acidentalmente ampla ("streaming",
+# sem mais nada) nao gaste a quota semanal inteira numa execucao.
+LIMITE_SEGURANCA = int(os.getenv("LIMITE_SEGURANCA", "5000"))
 
 # Quantos downloads simultaneos. Baixo de proposito: sao servidores de
 # editora e repositorio, nao vale a pena ser agressivo.

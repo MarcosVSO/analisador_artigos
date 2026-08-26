@@ -18,9 +18,19 @@ from .scopus import ClienteScopus, ScopusError, extrair_campos
 
 LOG = logging.getLogger(__name__)
 
-# A view STANDARD aceita ate 200 por requisicao; 25 e o teto da COMPLETE.
-# Como a Etapa 0 mostrou que so temos STANDARD, da para pedir paginas grandes.
-POR_PAGINA = 100
+# Quantos artigos pedir por requisicao. O teto depende do nivel de assinatura
+# da chave, e a Scopus so avisa qual e o seu tentando: uma chave sem
+# assinatura plena responde 400 "Exceeds the maximum number allowed for the
+# service level" a qualquer coisa acima de 25. Comecamos alto - menos
+# requisicoes, menos quota - e caimos para o proximo valor no primeiro erro.
+TAMANHOS_PAGINA = (200, 100, 25)
+
+# Trecho da mensagem de erro que indica "sua chave nao pode pedir tanto".
+ERRO_TAMANHO_PAGINA = "maximum number allowed"
+
+# Teto rigido da paginacao por offset da Scopus. Passar disso exigiria o
+# parametro `cursor`, restrito nesta chave.
+LIMITE_TECNICO_OFFSET = 5000
 
 
 class BuscaError(Exception):
@@ -68,7 +78,15 @@ def _salvar_resposta_bruta(query: str, paginas: list[dict[str, Any]]) -> str:
     return str(caminho.relative_to(config.RAIZ)).replace("\\", "/")
 
 
-def executar_busca(sessao: Session, query: str, max_resultados: int) -> Busca:
+def executar_busca(sessao: Session, query: str) -> Busca:
+    """Traz TODOS os resultados da query, sem teto informado pelo usuario.
+
+    Pagina por `start` (offset). O `cursor`, que percorreria conjuntos acima
+    de 5.000, e restrito nesta chave - a Scopus responde 403 "Use of the
+    cursor parameter is restricted". Na pratica isso limita uma busca a
+    `LIMITE_TECNICO_OFFSET` resultados; acima disso e preciso fatiar a query
+    (por ano, por exemplo).
+    """
     ok, motivo = config.credenciais_ok()
     if not ok:
         raise BuscaError(motivo)
@@ -77,28 +95,52 @@ def executar_busca(sessao: Session, query: str, max_resultados: int) -> Busca:
 
     cliente = ClienteScopus(config.SCOPUS_API_KEY, config.SCOPUS_INSTTOKEN)
 
+    teto = min(config.LIMITE_SEGURANCA, LIMITE_TECNICO_OFFSET)
     paginas_brutas: list[dict[str, Any]] = []
     entradas: list[dict[str, Any]] = []
     total = 0
-    inicio = 0
+    indice_tamanho = 0
 
     try:
-        while inicio < max_resultados:
-            quantidade = min(POR_PAGINA, max_resultados - inicio)
-            resposta = cliente.buscar(
-                query, count=quantidade, start=inicio, view=config.SCOPUS_VIEW
-            )
+        while len(entradas) < teto:
+            inicio = len(entradas)
+            try:
+                resposta = cliente.buscar(
+                    query,
+                    count=min(TAMANHOS_PAGINA[indice_tamanho], teto - inicio),
+                    start=inicio,
+                    view=config.SCOPUS_VIEW,
+                )
+            except ScopusError as exc:
+                # Nao e falha da busca: e a chave dizendo que a pagina pedida
+                # e grande demais. Tenta o proximo tamanho, do mesmo offset.
+                if (
+                    ERRO_TAMANHO_PAGINA in str(exc)
+                    and indice_tamanho < len(TAMANHOS_PAGINA) - 1
+                ):
+                    indice_tamanho += 1
+                    LOG.info(
+                        "Scopus recusou paginas de %s; caindo para %s por requisicao.",
+                        TAMANHOS_PAGINA[indice_tamanho - 1],
+                        TAMANHOS_PAGINA[indice_tamanho],
+                    )
+                    continue
+                raise
+
             total = resposta.total
             paginas_brutas.append({"start": inicio, "entradas": resposta.entradas})
             entradas.extend(resposta.entradas)
 
-            inicio += len(resposta.entradas)
-            if not resposta.entradas or inicio >= total:
+            # Pagina vazia significa fim do conjunto - e a unica condicao de
+            # parada confiavel, porque `total` as vezes conta mais do que a
+            # API efetivamente entrega.
+            if not resposta.entradas or len(entradas) >= total:
                 break
-            # A Scopus limita paginacao por `start` a 5.000 resultados.
-            if inicio >= 5000:
-                LOG.warning("Limite de 5.000 da paginacao por start atingido.")
-                break
+
+        if len(entradas) < total:
+            LOG.warning(
+                "Busca truncada em %s de %s resultados.", len(entradas), total
+            )
     except ScopusError as exc:
         raise BuscaError(str(exc)) from exc
 

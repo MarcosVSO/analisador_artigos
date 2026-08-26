@@ -41,6 +41,22 @@ export interface Progresso {
   landing: number;
   erro: number;
   em_andamento: boolean;
+  a_baixar: number;
+}
+
+export interface PaginaArtigos {
+  itens: Artigo[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+  paginas: number;
+}
+
+/** null = sem filtro (mostra os dois casos). */
+export interface Filtros {
+  texto: string;
+  baixado: boolean | null;
+  paywall: boolean | null;
 }
 
 export interface Configuracao {
@@ -50,4 +66,3 @@ export interface Configuracao {
   view_scopus: string;
 }
 
-export type Situacao = "todos" | "baixados" | "sem_pdf";

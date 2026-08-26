@@ -1,27 +1,37 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, ErroApi } from "./api";
+import { FiltrosArtigos } from "./componentes/FiltrosArtigos";
 import { FormularioBusca } from "./componentes/FormularioBusca";
+import { ModalArtigo } from "./componentes/ModalArtigo";
 import { PainelProgresso } from "./componentes/PainelProgresso";
 import { TabelaArtigos } from "./componentes/TabelaArtigos";
-import type { Artigo, Busca, Configuracao, Progresso, Situacao } from "./tipos";
+import type {
+  Artigo,
+  Busca,
+  Configuracao,
+  Filtros,
+  PaginaArtigos,
+  Progresso,
+} from "./tipos";
 
 const INTERVALO_POLL_MS = 3000;
+const FILTROS_VAZIOS: Filtros = { texto: "", baixado: null, paywall: null };
 
 export default function App() {
   const [config, setConfig] = useState<Configuracao | null>(null);
   const [busca, setBusca] = useState<Busca | null>(null);
   const [progresso, setProgresso] = useState<Progresso | null>(null);
-  const [artigos, setArtigos] = useState<Artigo[]>([]);
+  const [pagina, setPagina] = useState<PaginaArtigos | null>(null);
 
-  const [situacao, setSituacao] = useState<Situacao>("todos");
-  const [texto, setTexto] = useState("");
+  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
+  const [numeroPagina, setNumeroPagina] = useState(1);
+  const [detalhado, setDetalhado] = useState<Artigo | null>(null);
 
   const [buscando, setBuscando] = useState(false);
-  const [carregandoArtigos, setCarregandoArtigos] = useState(false);
+  const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  // Config e a busca mais recente, para a pagina abrir ja com contexto.
   useEffect(() => {
     api.configuracao().then(setConfig).catch(() => setConfig(null));
     api
@@ -35,48 +45,59 @@ export default function App() {
   }, []);
 
   const recarregar = useCallback(
-    async (buscaId: number, comSpinner: boolean) => {
-      if (comSpinner) setCarregandoArtigos(true);
+    async (buscaId: number, numero: number, comSpinner: boolean) => {
+      if (comSpinner) setCarregando(true);
       try {
-        const [novoProgresso, novosArtigos] = await Promise.all([
+        const [novoProgresso, novaPagina] = await Promise.all([
           api.progresso(buscaId),
-          api.listarArtigos(buscaId, situacao, texto),
+          api.listarArtigos(buscaId, filtros, numero),
         ]);
         setProgresso(novoProgresso);
-        setArtigos(novosArtigos);
+        setPagina(novaPagina);
       } catch (e) {
         if (e instanceof ErroApi) setErro(e.message);
       } finally {
-        if (comSpinner) setCarregandoArtigos(false);
+        if (comSpinner) setCarregando(false);
       }
     },
-    [situacao, texto],
+    [filtros],
   );
 
-  // Recarrega ao trocar de busca ou de filtro.
+  // Um filtro novo pode deixar menos paginas do que a atual; voltar para a 1
+  // evita cair numa pagina vazia.
+  const primeiraRenderizacao = useRef(true);
   useEffect(() => {
-    if (busca) void recarregar(busca.id, true);
-  }, [busca, recarregar]);
+    if (primeiraRenderizacao.current) {
+      primeiraRenderizacao.current = false;
+      return;
+    }
+    setNumeroPagina(1);
+  }, [filtros]);
 
-  // Enquanto o download roda, atualiza sozinho. O intervalo e desmontado
-  // assim que `em_andamento` vira false, entao a pagina para de bater no
-  // backend quando nao ha mais nada acontecendo.
+  useEffect(() => {
+    if (busca) void recarregar(busca.id, numeroPagina, true);
+  }, [busca, numeroPagina, recarregar]);
+
+  // Enquanto o download roda, atualiza sozinho; para de consultar quando acaba.
   useEffect(() => {
     if (!busca || !progresso?.em_andamento) return;
-    const timer = setInterval(() => void recarregar(busca.id, false), INTERVALO_POLL_MS);
+    const timer = setInterval(
+      () => void recarregar(busca.id, numeroPagina, false),
+      INTERVALO_POLL_MS,
+    );
     return () => clearInterval(timer);
-  }, [busca, progresso?.em_andamento, recarregar]);
+  }, [busca, progresso?.em_andamento, numeroPagina, recarregar]);
 
-  async function aoBuscar(query: string, maxResultados: number) {
+  async function aoBuscar(query: string) {
     setBuscando(true);
     setErro(null);
     setProgresso(null);
-    setArtigos([]);
+    setPagina(null);
+    setFiltros(FILTROS_VAZIOS);
+    setNumeroPagina(1);
     try {
-      const nova = await api.criarBusca(query, maxResultados);
+      const nova = await api.criarBusca(query);
       setBusca(nova);
-      // O backend ja disparou o download; um poll imediato acende a barra.
-      await recarregar(nova.id, true);
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Falha inesperada na busca.");
     } finally {
@@ -84,11 +105,11 @@ export default function App() {
     }
   }
 
-  async function aoBaixar() {
+  async function aoBaixar(incluirFalhas: boolean) {
     if (!busca) return;
     setErro(null);
     try {
-      setProgresso(await api.baixarPdfs(busca.id));
+      setProgresso(await api.baixarPdfs(busca.id, incluirFalhas));
     } catch (e) {
       if (e instanceof ErroApi) setErro(e.message);
     }
@@ -99,8 +120,8 @@ export default function App() {
       <header className="cabecalho">
         <h1>Analisador de Artigos</h1>
         <p>
-          Busca no Scopus, download automático dos PDFs em acesso aberto e
-          catalogação para a revisão bibliográfica.
+          Busca no Scopus, download dos PDFs em acesso aberto e catalogação para a
+          revisão bibliográfica.
         </p>
       </header>
 
@@ -125,38 +146,22 @@ export default function App() {
       />
 
       {busca && (
-        <PainelProgresso busca={busca} progresso={progresso} onBaixar={aoBaixar} />
+        <>
+          <PainelProgresso busca={busca} progresso={progresso} onBaixar={aoBaixar} />
+          <FiltrosArtigos filtros={filtros} onMudar={setFiltros} />
+        </>
       )}
 
-      {busca && (
-        <div className="cartao">
-          <div className="linha-controles" style={{ marginTop: 0 }}>
-            <div className="crescer">
-              <label htmlFor="filtro-texto">Filtrar por título</label>
-              <input
-                id="filtro-texto"
-                value={texto}
-                onChange={(e) => setTexto(e.target.value)}
-                placeholder="ex.: volumetric"
-              />
-            </div>
-            <div>
-              <label htmlFor="filtro-situacao">Situação do PDF</label>
-              <select
-                id="filtro-situacao"
-                value={situacao}
-                onChange={(e) => setSituacao(e.target.value as Situacao)}
-              >
-                <option value="todos">Todos</option>
-                <option value="baixados">Só com PDF baixado</option>
-                <option value="sem_pdf">Só sem PDF</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
+      <TabelaArtigos
+        pagina={pagina}
+        carregando={carregando}
+        onDetalhar={setDetalhado}
+        onMudarPagina={setNumeroPagina}
+      />
 
-      <TabelaArtigos artigos={artigos} carregando={carregandoArtigos} />
+      {detalhado && (
+        <ModalArtigo artigo={detalhado} onFechar={() => setDetalhado(null)} />
+      )}
     </div>
   );
 }

@@ -90,13 +90,36 @@ não há CORS no caminho. A documentação interativa da API fica em
 
 ## Fluxo
 
-1. Você digita a string de busca no frontend e clica em **Buscar no Scopus**.
+1. Você digita a string de busca e clica em **Buscar no Scopus**. A busca traz
+   **todos** os resultados da query — não há campo de máximo.
 2. O backend pagina a Scopus, grava a **resposta bruta** em
    `dados/respostas_scopus/busca_<carimbo>.json` e persiste os artigos.
 3. O OpenAlex preenche abstract e keywords por DOI (ver nota abaixo).
-4. O download dos PDFs começa sozinho, em background. A tela atualiza a barra
-   de progresso enquanto roda e para de consultar quando termina.
-5. Artigos com PDF ganham o botão **Abrir PDF**, servido pelo backend inline.
+4. Os artigos aparecem na listagem, **15 por página**, ordenados por citações.
+   A lupa 🔍 abre um modal com abstract, palavras-chave, veículo, tipo e DOI.
+5. **Baixar pendentes** dispara o download em background dos que ainda não
+   foram tentados. A tela atualiza a barra de progresso enquanto roda e para de
+   consultar quando termina.
+6. Artigos com PDF ganham o botão **Abrir PDF**, servido pelo backend inline.
+
+A busca e o download são passos separados de propósito: você vê o que veio
+antes de gastar tempo de rede baixando.
+
+### Filtros
+
+Três, combináveis: **título**, **download** (baixados / não baixados) e
+**paywall** (com / sem). Trocar qualquer um volta para a primeira página.
+
+### Os dois botões de download
+
+| Botão | O que processa |
+|---|---|
+| **Baixar pendentes** | Só os que nunca foram tentados (status `pendente`) |
+| **Tentar novamente** | Os que ficaram como `paywall`, `landing` ou `erro` |
+
+A separação existe porque refazer os `paywall` custa várias requisições por
+artigo para reconfirmar o que já se sabe. O segundo botão só aparece quando há
+o que retentar.
 
 ---
 
@@ -135,8 +158,20 @@ conceitos que a `view=COMPLETE` não traria. Se um dia a assinatura liberar
 
 ---
 
-## Quota
+## Limites da chave do Scopus
 
-A Scopus dá cerca de 20.000 requisições semanais na Search API. Cada busca
-consome uma requisição a cada 100 artigos recuperados. OpenAlex, Unpaywall e
-arXiv são gratuitos e não contam nessa quota.
+Além da falta de `view=COMPLETE`, esta chave tem dois limites que o código
+contorna sozinho:
+
+- **Páginas de no máximo 25 resultados.** Pedir mais devolve
+  `400 Exceeds the maximum number allowed for the service level`. O código
+  tenta 200, depois 100, depois 25, e fica no primeiro que a chave aceitar —
+  assim uma assinatura melhor passa a gastar menos quota sem mexer no código.
+- **Parâmetro `cursor` restrito** (`403 Use of the cursor parameter is
+  restricted`). A paginação usa offset, que a Scopus limita a **5.000
+  resultados por busca**. Uma query acima disso precisa ser fatiada — por ano,
+  por exemplo.
+
+A quota é de cerca de 20.000 requisições semanais, ou seja ~1 requisição a cada
+25 artigos recuperados. OpenAlex, Unpaywall e arXiv são gratuitos e não contam
+nessa quota.

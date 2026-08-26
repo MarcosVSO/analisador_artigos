@@ -8,11 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PedidoBusca(BaseModel):
+    """A busca traz todos os resultados da query e nao baixa nada.
+
+    O download e sempre um passo separado, disparado pelo botao "Baixar
+    pendentes" - assim voce ve o que veio antes de gastar tempo de rede.
+    """
+
     query: str = Field(min_length=3, description="String de busca na sintaxe do Scopus")
-    max_resultados: int = Field(default=200, ge=1, le=5000)
-    baixar_automaticamente: bool = Field(
-        default=True, description="Dispara o download dos PDFs assim que a busca terminar"
-    )
 
 
 class BuscaResposta(BaseModel):
@@ -52,6 +54,16 @@ class ArtigoResposta(BaseModel):
     tem_paywall: bool
 
 
+class PaginaArtigos(BaseModel):
+    """Uma pagina da listagem. `total` e a contagem APOS os filtros."""
+
+    itens: list[ArtigoResposta]
+    total: int
+    pagina: int
+    por_pagina: int
+    paginas: int
+
+
 class Progresso(BaseModel):
     busca_id: int
     total: int
@@ -61,6 +73,8 @@ class Progresso(BaseModel):
     landing: int
     erro: int
     em_andamento: bool
+    # Quantos o botao "Baixar pendentes" vai processar agora.
+    a_baixar: int
 
 
 class ConfiguracaoResposta(BaseModel):

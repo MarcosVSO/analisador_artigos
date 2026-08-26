@@ -1,46 +1,21 @@
 import { urlPdf } from "../api";
-import type { Artigo, StatusPDF } from "../tipos";
+import type { Artigo, PaginaArtigos } from "../tipos";
+import { ETIQUETAS, formatarAutores, formatarTamanho } from "./etiquetas";
 
 interface Props {
-  artigos: Artigo[];
+  pagina: PaginaArtigos | null;
   carregando: boolean;
+  onDetalhar: (artigo: Artigo) => void;
+  onMudarPagina: (pagina: number) => void;
 }
 
-/** Rotulo e cor de cada estado de aquisicao do PDF. */
-const ETIQUETAS: Record<StatusPDF, { texto: string; classe: string; ajuda: string }> = {
-  baixado: { texto: "Baixado", classe: "ok", ajuda: "PDF salvo em dados/pdfs" },
-  paywall: {
-    texto: "Paywall",
-    classe: "atencao",
-    ajuda: "Sem versão aberta — precisa de upload manual pelo acesso da universidade",
-  },
-  landing: {
-    texto: "Paywall (só página)",
-    classe: "atencao",
-    ajuda: "Há versão aberta, mas só a página do artigo — sem link direto de PDF",
-  },
-  erro: {
-    texto: "Falhou",
-    classe: "erro",
-    ajuda: "O link prometia PDF mas o download não completou",
-  },
-  pendente: { texto: "Pendente", classe: "neutro", ajuda: "Ainda não foi tentado" },
-};
-
-function formatarTamanho(bytes: number | null): string {
-  if (!bytes) return "";
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-}
-
-function formatarAutores(autores: string[]): string {
-  if (!autores.length) return "—";
-  if (autores.length <= 2) return autores.join("; ");
-  return `${autores[0]} et al.`;
-}
-
-export function TabelaArtigos({ artigos, carregando }: Props) {
-  if (carregando) {
+export function TabelaArtigos({
+  pagina,
+  carregando,
+  onDetalhar,
+  onMudarPagina,
+}: Props) {
+  if (carregando && !pagina) {
     return (
       <div className="cartao vazio">
         <span className="girando" /> Carregando artigos…
@@ -48,7 +23,7 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
     );
   }
 
-  if (!artigos.length) {
+  if (!pagina || !pagina.itens.length) {
     return (
       <div className="cartao vazio">
         Nenhum artigo para exibir. Rode uma busca ou ajuste os filtros.
@@ -56,7 +31,8 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
     );
   }
 
-  const baixados = artigos.filter((a) => a.baixado).length;
+  const primeiro = (pagina.pagina - 1) * pagina.por_pagina + 1;
+  const ultimo = primeiro + pagina.itens.length - 1;
 
   return (
     <div className="cartao">
@@ -64,7 +40,8 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
         <table>
           <thead>
             <tr>
-              <th style={{ width: "45%" }}>Artigo</th>
+              <th style={{ width: 40 }}></th>
+              <th>Artigo</th>
               <th>Ano</th>
               <th className="num">Cit.</th>
               <th>PDF</th>
@@ -73,17 +50,26 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
             </tr>
           </thead>
           <tbody>
-            {artigos.map((artigo) => {
+            {pagina.itens.map((artigo) => {
               const etiqueta = ETIQUETAS[artigo.pdf_status] ?? ETIQUETAS.pendente;
               return (
                 <tr key={artigo.id}>
+                  <td>
+                    <button
+                      className="lupa"
+                      onClick={() => onDetalhar(artigo)}
+                      title="Ver abstract, palavras-chave e detalhes"
+                      aria-label={`Detalhes de ${artigo.titulo}`}
+                    >
+                      🔍
+                    </button>
+                  </td>
                   <td>
                     <div className="titulo-artigo">{artigo.titulo}</div>
                     <div className="meta">
                       {formatarAutores(artigo.autores)}
                       {artigo.venue && ` · ${artigo.venue}`}
                     </div>
-                    {artigo.doi && <div className="meta">doi:{artigo.doi}</div>}
                   </td>
                   <td>{artigo.ano ?? "—"}</td>
                   <td className="num">{artigo.citacoes ?? 0}</td>
@@ -109,16 +95,6 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
                       >
                         Abrir PDF
                       </a>
-                    ) : artigo.pdf_url ? (
-                      <a
-                        className="meta"
-                        href={artigo.pdf_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Abre a página do artigo no site do editor"
-                      >
-                        Ver página ↗
-                      </a>
                     ) : (
                       <span className="meta">—</span>
                     )}
@@ -129,8 +105,29 @@ export function TabelaArtigos({ artigos, carregando }: Props) {
           </tbody>
         </table>
       </div>
-      <div className="rodape-tabela">
-        {artigos.length} artigos · {baixados} com PDF disponível
+
+      <div className="paginacao">
+        <span className="meta">
+          {primeiro}–{ultimo} de {pagina.total} artigos
+          {carregando && <span className="girando" style={{ marginLeft: 8 }} />}
+        </span>
+        <div className="paginacao-botoes">
+          <button
+            onClick={() => onMudarPagina(pagina.pagina - 1)}
+            disabled={pagina.pagina <= 1}
+          >
+            ← Anterior
+          </button>
+          <span className="meta">
+            Página {pagina.pagina} de {pagina.paginas}
+          </span>
+          <button
+            onClick={() => onMudarPagina(pagina.pagina + 1)}
+            disabled={pagina.pagina >= pagina.paginas}
+          >
+            Próxima →
+          </button>
+        </div>
       </div>
     </div>
   );

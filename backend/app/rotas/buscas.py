@@ -31,14 +31,11 @@ def obter_configuracao() -> ConfiguracaoResposta:
 def criar_busca(
     pedido: PedidoBusca, sessao: Session = Depends(obter_sessao)
 ) -> Busca:
+    """Busca no Scopus e persiste. Nao baixa nada - isso e o botao separado."""
     try:
-        busca = executar_busca(sessao, pedido.query, pedido.max_resultados)
+        return executar_busca(sessao, pedido.query)
     except BuscaError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
-
-    if pedido.baixar_automaticamente and busca.novos:
-        download.disparar(busca.id)
-    return busca
 
 
 @roteador.get("/buscas", response_model=list[BuscaResposta])
@@ -49,10 +46,15 @@ def listar_buscas(sessao: Session = Depends(obter_sessao)) -> list[Busca]:
 
 
 @roteador.post("/buscas/{busca_id}/baixar", response_model=Progresso)
-def baixar_pdfs(busca_id: int, sessao: Session = Depends(obter_sessao)) -> dict:
+def baixar_pdfs(
+    busca_id: int,
+    incluir_falhas: bool = False,
+    sessao: Session = Depends(obter_sessao),
+) -> dict:
+    """Baixa os pendentes. Com `incluir_falhas`, retenta tambem paywall e erro."""
     if sessao.get(Busca, busca_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Busca nao encontrada.")
-    download.disparar(busca_id)
+    download.disparar(busca_id, incluir_falhas)
     return download.progresso(sessao, busca_id)
 
 

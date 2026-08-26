@@ -80,6 +80,20 @@ def _processar_artigo(artigo_id: int) -> None:
             )
 
 
+def _consulta_alvos(busca_id: int, incluir_falhas: bool):
+    """Quais artigos o download vai processar.
+
+    Por padrao so os que nunca foram tentados (`pendente`). Refazer os
+    `paywall` a cada clique custaria varias requisicoes por artigo para
+    reconfirmar o que ja se sabe - por isso repetir uma falha e uma acao
+    separada e explicita.
+    """
+    consulta = select(Artigo.id).where(Artigo.busca_id == busca_id)
+    if incluir_falhas:
+        return consulta.where(Artigo.baixado.is_(False))
+    return consulta.where(Artigo.pdf_status == StatusPDF.PENDENTE.value)
+
+
 def _processar_isolado(artigo_id: int) -> None:
     """Blindagem por artigo.
 
@@ -102,21 +116,14 @@ def _processar_isolado(artigo_id: int) -> None:
             LOG.exception("Nao consegui nem registrar o erro do artigo %s", artigo_id)
 
 
-def _executar(busca_id: int) -> None:
+def _executar(busca_id: int, incluir_falhas: bool) -> None:
     try:
         with sessao_escopo() as sessao:
             busca = sessao.get(Busca, busca_id)
             if busca is None:
                 return
             busca.status = StatusBusca.BAIXANDO.value
-            ids = list(
-                sessao.scalars(
-                    select(Artigo.id).where(
-                        Artigo.busca_id == busca_id,
-                        Artigo.baixado.is_(False),
-                    )
-                )
-            )
+            ids = list(sessao.scalars(_consulta_alvos(busca_id, incluir_falhas)))
 
         LOG.info("Iniciando download de %s artigos da busca %s", len(ids), busca_id)
         with ThreadPoolExecutor(max_workers=config.DOWNLOADS_SIMULTANEOS) as pool:
@@ -137,7 +144,7 @@ def _executar(busca_id: int) -> None:
             _buscas_ativas.discard(busca_id)
 
 
-def disparar(busca_id: int) -> bool:
+def disparar(busca_id: int, incluir_falhas: bool = False) -> bool:
     """Inicia o download em background. False se ja estava rodando."""
     with _trava:
         if busca_id in _buscas_ativas:
@@ -145,7 +152,10 @@ def disparar(busca_id: int) -> bool:
         _buscas_ativas.add(busca_id)
 
     thread = threading.Thread(
-        target=_executar, args=(busca_id,), daemon=True, name=f"download-{busca_id}"
+        target=_executar,
+        args=(busca_id, incluir_falhas),
+        daemon=True,
+        name=f"download-{busca_id}",
     )
     thread.start()
     return True
@@ -169,4 +179,5 @@ def progresso(sessao, busca_id: int) -> dict:
         "landing": por_status.get(StatusPDF.LANDING.value, 0),
         "erro": por_status.get(StatusPDF.ERRO.value, 0),
         "em_andamento": em_andamento(busca_id),
+        "a_baixar": por_status.get(StatusPDF.PENDENTE.value, 0),
     }

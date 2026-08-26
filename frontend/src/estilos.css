@@ -322,3 +322,173 @@ tbody tr:hover {
     transform: rotate(360deg);
   }
 }
+
+/* --- lupa e paginacao --- */
+.lupa {
+  padding: 4px 8px;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: 6px;
+}
+
+.paginacao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+}
+
+.paginacao-botoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paginacao-botoes button {
+  padding: 6px 12px;
+}
+
+.painel-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.painel-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.botao-secundario {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  border-radius: 6px;
+}
+
+/* --- modal --- */
+.fundo-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  width: min(780px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.modal-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.modal-cabecalho h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.fechar {
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0 6px;
+  color: var(--texto-fraco);
+}
+
+.modal-corpo {
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+.modal-corpo section {
+  margin-top: 20px;
+}
+
+.modal-corpo h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-fraco);
+  margin: 0 0 8px;
+}
+
+.ficha {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.ficha dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-fraco);
+  padding-top: 2px;
+}
+
+.ficha dd {
+  margin: 0;
+}
+
+.abstract {
+  margin: 0;
+  text-align: justify;
+  line-height: 1.65;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  background: var(--neutro-fundo);
+  color: var(--neutro-texto);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12px;
+}
+
+.modal-rodape {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--borda);
+}
+
+a {
+  color: var(--acento);
+}
