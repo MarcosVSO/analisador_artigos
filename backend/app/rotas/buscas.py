@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -49,12 +49,17 @@ def listar_buscas(sessao: Session = Depends(obter_sessao)) -> list[Busca]:
 def baixar_pdfs(
     busca_id: int,
     incluir_falhas: bool = False,
+    limite: int | None = Query(default=None, ge=1, description="None = todos"),
     sessao: Session = Depends(obter_sessao),
 ) -> dict:
-    """Baixa os pendentes. Com `incluir_falhas`, retenta tambem paywall e erro."""
+    """Baixa os pendentes.
+
+    `limite` atende o "Baixar N pendentes"; `incluir_falhas` retenta tambem
+    os que ficaram como paywall ou erro.
+    """
     if sessao.get(Busca, busca_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Busca nao encontrada.")
-    download.disparar(busca_id, incluir_falhas)
+    download.disparar(busca_id, incluir_falhas, limite)
     return download.progresso(sessao, busca_id)
 
 

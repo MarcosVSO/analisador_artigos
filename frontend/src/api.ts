@@ -3,8 +3,12 @@ import type {
   Busca,
   Configuracao,
   Filtros,
+  Ordenacao,
   PaginaArtigos,
+  PainelRespostas,
+  Pergunta,
   Progresso,
+  RespostaItem,
 } from "./tipos";
 
 /** Erro da API com a mensagem que o backend mandou, nao um "Failed to fetch". */
@@ -45,6 +49,8 @@ async function pedir<T>(url: string, init?: RequestInit): Promise<T> {
     throw new ErroApi(detalhe, resposta.status);
   }
 
+  // 204 nao tem corpo para desserializar.
+  if (resposta.status === 204) return undefined as T;
   return resposta.json() as Promise<T>;
 }
 
@@ -64,15 +70,27 @@ export const api = {
 
   progresso: (buscaId: number) => pedir<Progresso>(`/api/buscas/${buscaId}/progresso`),
 
-  baixarPdfs: (buscaId: number, incluirFalhas = false) =>
-    pedir<Progresso>(
-      `/api/buscas/${buscaId}/baixar?incluir_falhas=${incluirFalhas}`,
-      { method: "POST" },
-    ),
+  /** `limite` ausente = todos os pendentes. */
+  baixarPdfs: (buscaId: number, incluirFalhas = false, limite?: number) => {
+    const params = new URLSearchParams({ incluir_falhas: String(incluirFalhas) });
+    if (limite && limite > 0) params.set("limite", String(limite));
+    return pedir<Progresso>(`/api/buscas/${buscaId}/baixar?${params}`, {
+      method: "POST",
+    });
+  },
 
-  listarArtigos: (buscaId: number, filtros: Filtros, pagina: number) => {
+  baixarArtigo: (artigoId: number) =>
+    pedir<Artigo>(`/api/artigos/${artigoId}/baixar`, { method: "POST" }),
+
+  listarArtigos: (
+    buscaId: number,
+    filtros: Filtros,
+    ordenarPor: Ordenacao,
+    pagina: number,
+  ) => {
     const params = new URLSearchParams({
       busca_id: String(buscaId),
+      ordenar_por: ordenarPor,
       pagina: String(pagina),
       por_pagina: String(POR_PAGINA),
     });
@@ -84,7 +102,36 @@ export const api = {
   },
 
   detalharArtigo: (artigoId: number) => pedir<Artigo>(`/api/artigos/${artigoId}`),
+
+  // --- perguntas de pesquisa ---
+  listarPerguntas: () => pedir<Pergunta[]>("/api/perguntas"),
+
+  criarPergunta: (texto: string) =>
+    pedir<Pergunta>("/api/perguntas", {
+      method: "POST",
+      body: JSON.stringify({ texto }),
+    }),
+
+  atualizarPergunta: (id: number, patch: Partial<Pick<Pergunta, "texto" | "ativa">>) =>
+    pedir<Pergunta>(`/api/perguntas/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  removerPergunta: (id: number) =>
+    pedir<void>(`/api/perguntas/${id}`, { method: "DELETE" }),
+
+  // --- respostas por artigo ---
+  obterRespostas: (artigoId: number) =>
+    pedir<PainelRespostas>(`/api/artigos/${artigoId}/respostas`),
+
+  salvarResposta: (artigoId: number, perguntaId: number, texto: string) =>
+    pedir<RespostaItem>(`/api/artigos/${artigoId}/respostas/${perguntaId}`, {
+      method: "PUT",
+      body: JSON.stringify({ texto }),
+    }),
 };
 
-/** URL do PDF servido pelo backend. Abre inline em nova aba. */
-export const urlPdf = (artigoId: number) => `/api/artigos/${artigoId}/pdf`;
+/** URL do PDF servido pelo backend. `anexo` forca salvar em vez de abrir. */
+export const urlPdf = (artigoId: number, anexo = false) =>
+  `/api/artigos/${artigoId}/pdf${anexo ? "?anexo=true" : ""}`;

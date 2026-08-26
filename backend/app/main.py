@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .banco import criar_tabelas
-from .rotas import artigos, buscas
+from .rotas import artigos, buscas, perguntas
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +33,7 @@ app.add_middleware(
 
 app.include_router(buscas.roteador)
 app.include_router(artigos.roteador)
+app.include_router(perguntas.roteador)
 
 
 @app.on_event("startup")

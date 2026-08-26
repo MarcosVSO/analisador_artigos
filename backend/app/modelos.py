@@ -105,6 +105,10 @@ class Artigo(Base):
 
     busca: Mapped[Busca] = relationship(back_populates="artigos")
 
+    respostas: Mapped[list["Resposta"]] = relationship(
+        back_populates="artigo", cascade="all, delete-orphan"
+    )
+
     @property
     def tem_paywall(self) -> bool:
         """O que a listagem mostra como 'paywall'.
@@ -113,3 +117,49 @@ class Artigo(Base):
         efeito e o mesmo: o PDF nao veio sozinho.
         """
         return self.pdf_status in (StatusPDF.PAYWALL.value, StatusPDF.LANDING.value)
+
+
+class Pergunta(Base):
+    """Pergunta de pesquisa da revisao.
+
+    Global, nao por busca: a mesma bateria de perguntas se aplica a todo
+    artigo que entrar no corpus, inclusive os de uma busca futura.
+    """
+
+    __tablename__ = "perguntas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    texto: Mapped[str] = mapped_column(Text)
+    ordem: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    # Arquivar em vez de apagar: uma pergunta descartada no meio da revisao
+    # levaria junto as respostas ja escritas para ela.
+    ativa: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
+
+    respostas: Mapped[list["Resposta"]] = relationship(
+        back_populates="pergunta", cascade="all, delete-orphan"
+    )
+
+
+class Resposta(Base):
+    """Resposta de um artigo a uma pergunta. Uma linha por par."""
+
+    __tablename__ = "respostas"
+    __table_args__ = (
+        UniqueConstraint("artigo_id", "pergunta_id", name="uq_artigo_pergunta"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artigo_id: Mapped[int] = mapped_column(
+        ForeignKey("artigos.id", ondelete="CASCADE"), index=True
+    )
+    pergunta_id: Mapped[int] = mapped_column(
+        ForeignKey("perguntas.id", ondelete="CASCADE"), index=True
+    )
+    texto: Mapped[str] = mapped_column(Text, default="")
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime, default=agora, onupdate=agora
+    )
+
+    artigo: Mapped[Artigo] = relationship(back_populates="respostas")
+    pergunta: Mapped[Pergunta] = relationship(back_populates="respostas")

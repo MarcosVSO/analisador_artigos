@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { urlPdf } from "../api";
 import type { Artigo, PaginaArtigos } from "../tipos";
 import { ETIQUETAS, formatarAutores, formatarTamanho } from "./etiquetas";
@@ -5,14 +7,18 @@ import { ETIQUETAS, formatarAutores, formatarTamanho } from "./etiquetas";
 interface Props {
   pagina: PaginaArtigos | null;
   carregando: boolean;
+  baixandoIds: Set<number>;
   onDetalhar: (artigo: Artigo) => void;
+  onBaixarArtigo: (artigo: Artigo) => void;
   onMudarPagina: (pagina: number) => void;
 }
 
 export function TabelaArtigos({
   pagina,
   carregando,
+  baixandoIds,
   onDetalhar,
+  onBaixarArtigo,
   onMudarPagina,
 }: Props) {
   if (carregando && !pagina) {
@@ -45,13 +51,13 @@ export function TabelaArtigos({
               <th>Ano</th>
               <th className="num">Cit.</th>
               <th>PDF</th>
-              <th>Fonte</th>
-              <th>Ação</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {pagina.itens.map((artigo) => {
               const etiqueta = ETIQUETAS[artigo.pdf_status] ?? ETIQUETAS.pendente;
+              const baixando = baixandoIds.has(artigo.id);
               return (
                 <tr key={artigo.id}>
                   <td>
@@ -81,23 +87,58 @@ export function TabelaArtigos({
                       {etiqueta.texto}
                     </span>
                     {artigo.baixado && (
-                      <div className="meta">{formatarTamanho(artigo.pdf_bytes)}</div>
+                      <div className="meta">
+                        {formatarTamanho(artigo.pdf_bytes)}
+                        {artigo.pdf_fonte && ` · ${artigo.pdf_fonte}`}
+                      </div>
                     )}
                   </td>
-                  <td className="meta">{artigo.pdf_fonte ?? "—"}</td>
                   <td>
-                    {artigo.baixado ? (
-                      <a
-                        className="botao-pdf"
-                        href={urlPdf(artigo.id)}
-                        target="_blank"
-                        rel="noreferrer"
+                    <div className="acoes-linha">
+                      {artigo.baixado ? (
+                        <>
+                          <a
+                            className="botao-pdf"
+                            href={urlPdf(artigo.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Abrir PDF
+                          </a>
+                          <a
+                            className="botao-icone"
+                            href={urlPdf(artigo.id, true)}
+                            title="Salvar o PDF no computador"
+                            aria-label={`Salvar PDF de ${artigo.titulo}`}
+                          >
+                            ⬇
+                          </a>
+                        </>
+                      ) : (
+                        <button
+                          className="botao-compacto"
+                          onClick={() => onBaixarArtigo(artigo)}
+                          disabled={baixando}
+                          title="Tentar baixar o PDF deste artigo agora"
+                        >
+                          {baixando ? (
+                            <>
+                              <span className="girando" />
+                              Baixando
+                            </>
+                          ) : (
+                            "Baixar"
+                          )}
+                        </button>
+                      )}
+                      <Link
+                        className="botao-compacto"
+                        to={`/artigos/${artigo.id}/perguntas`}
+                        title="Responder as perguntas de pesquisa deste artigo"
                       >
-                        Abrir PDF
-                      </a>
-                    ) : (
-                      <span className="meta">—</span>
-                    )}
+                        Perguntas
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );

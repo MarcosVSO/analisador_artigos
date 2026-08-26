@@ -1,12 +1,16 @@
+import { useState } from "react";
+
 import type { Busca, Progresso } from "../tipos";
 
 interface Props {
   busca: Busca;
   progresso: Progresso | null;
-  onBaixar: (incluirFalhas: boolean) => void;
+  onBaixar: (incluirFalhas: boolean, limite?: number) => void;
 }
 
 export function PainelProgresso({ busca, progresso, onBaixar }: Props) {
+  const [quantos, setQuantos] = useState(20);
+
   const total = progresso?.total ?? busca.novos;
   const baixados = progresso?.baixados ?? 0;
   const pendentes = progresso?.pendentes ?? total;
@@ -50,6 +54,25 @@ export function PainelProgresso({ busca, progresso, onBaixar }: Props) {
               `Baixar pendentes${aBaixar ? ` (${aBaixar})` : ""}`
             )}
           </button>
+          <div className="grupo-baixar-n">
+            <button
+              onClick={() => onBaixar(false, quantos)}
+              disabled={rodando || aBaixar === 0}
+              title="Baixa só os N primeiros pendentes, na ordem da listagem"
+            >
+              Baixar
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(aBaixar, 1)}
+              value={quantos}
+              onChange={(e) => setQuantos(Math.max(1, Number(e.target.value) || 1))}
+              disabled={rodando || aBaixar === 0}
+              aria-label="Quantos pendentes baixar"
+            />
+            <span className="meta">pendentes</span>
+          </div>
           {!rodando && falhas > 0 && (
             <button
               onClick={() => onBaixar(true)}

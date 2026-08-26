@@ -59,6 +59,28 @@ export interface Filtros {
   paywall: boolean | null;
 }
 
+export type Ordenacao = "citacoes" | "ano_desc" | "ano_asc" | "titulo";
+
+export interface Pergunta {
+  id: number;
+  texto: string;
+  ordem: number;
+  ativa: boolean;
+}
+
+export interface RespostaItem {
+  pergunta_id: number;
+  pergunta_texto: string;
+  ordem: number;
+  texto: string;
+}
+
+export interface PainelRespostas {
+  artigo: Artigo;
+  itens: RespostaItem[];
+  respondidas: number;
+}
+
 export interface Configuracao {
   query_padrao: string;
   credenciais_ok: boolean;

@@ -1,8 +1,10 @@
-import type { Filtros } from "../tipos";
+import type { Filtros, Ordenacao } from "../tipos";
 
 interface Props {
   filtros: Filtros;
+  ordenarPor: Ordenacao;
   onMudar: (filtros: Filtros) => void;
+  onMudarOrdem: (ordem: Ordenacao) => void;
 }
 
 /** "" no <select> representa o filtro desligado; o backend trata ausencia
@@ -17,7 +19,12 @@ function paraTexto(valor: boolean | null): string {
   return valor ? "sim" : "nao";
 }
 
-export function FiltrosArtigos({ filtros, onMudar }: Props) {
+export function FiltrosArtigos({
+  filtros,
+  ordenarPor,
+  onMudar,
+  onMudarOrdem,
+}: Props) {
   return (
     <div className="cartao">
       <div className="linha-controles" style={{ marginTop: 0 }}>
@@ -58,6 +65,20 @@ export function FiltrosArtigos({ filtros, onMudar }: Props) {
             <option value="">Todos</option>
             <option value="sim">Com paywall</option>
             <option value="nao">Sem paywall</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="ordenar">Ordenar por</label>
+          <select
+            id="ordenar"
+            value={ordenarPor}
+            onChange={(e) => onMudarOrdem(e.target.value as Ordenacao)}
+          >
+            <option value="citacoes">Citações (maior primeiro)</option>
+            <option value="ano_desc">Ano (mais recente)</option>
+            <option value="ano_asc">Ano (mais antigo)</option>
+            <option value="titulo">Título (A–Z)</option>
           </select>
         </div>
 

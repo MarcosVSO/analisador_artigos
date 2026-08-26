@@ -15,12 +15,13 @@ backend/                  API FastAPI + SQLite
   app/
     config.py             caminhos e variáveis de ambiente
     banco.py              engine e sessão do SQLite
-    modelos.py            tabelas: buscas, artigos
+    modelos.py            tabelas: buscas, artigos, perguntas, respostas
     esquemas.py           contratos de entrada/saída da API
     main.py               aplicação FastAPI
     rotas/
       buscas.py           executar busca, progresso, disparar download
-      artigos.py          listagem filtrada e abertura do PDF
+      artigos.py          listagem filtrada, download por artigo, PDF
+      perguntas.py        perguntas de pesquisa e respostas por artigo
     servicos/
       scopus.py           cliente da Scopus Search API
       openalex.py         enriquecimento de abstract e keywords
@@ -32,10 +33,13 @@ backend/                  API FastAPI + SQLite
 
 frontend/                 React + Vite + TypeScript
   src/
-    App.tsx               tela principal
+    App.tsx               rotas
     api.ts                cliente HTTP
     tipos.ts              tipos compartilhados
-    componentes/          formulário, painel de progresso, tabela
+    paginas/
+      PaginaListagem.tsx  busca, filtros e tabela de artigos
+      PaginaPerguntas.tsx respostas de um artigo
+    componentes/          formulário, progresso, tabela, modal, drawer
 
 dados/                    gerado em execução, fora do git
   pdfs/                   PDFs baixados
@@ -110,16 +114,43 @@ antes de gastar tempo de rede baixando.
 Três, combináveis: **título**, **download** (baixados / não baixados) e
 **paywall** (com / sem). Trocar qualquer um volta para a primeira página.
 
-### Os dois botões de download
+### Ordenação
+
+Citações (padrão), ano decrescente, ano crescente ou título. Toda ordenação
+termina desempatando por `id` — sem isso, artigos empatados no mesmo ano
+podem repetir ou sumir entre páginas consecutivas.
+
+### Os botões de download
 
 | Botão | O que processa |
 |---|---|
-| **Baixar pendentes** | Só os que nunca foram tentados (status `pendente`) |
+| **Baixar pendentes** | Todos os que nunca foram tentados (status `pendente`) |
+| **Baixar [N] pendentes** | Só os N primeiros pendentes, na ordem da listagem |
 | **Tentar novamente** | Os que ficaram como `paywall`, `landing` ou `erro` |
+| **Baixar** (na linha) | Só aquele artigo |
 
-A separação existe porque refazer os `paywall` custa várias requisições por
-artigo para reconfirmar o que já se sabe. O segundo botão só aparece quando há
-o que retentar.
+A separação do "tentar novamente" existe porque refazer os `paywall` custa
+várias requisições por artigo para reconfirmar o que já se sabe. Ele só
+aparece quando há o que retentar.
+
+Cada linha com PDF baixado tem **Abrir PDF** (abre em nova aba) e **⬇**
+(salva o arquivo no computador).
+
+---
+
+## Perguntas de pesquisa
+
+O botão **Perguntas de pesquisa**, no topo, abre um drawer para criar, editar
+e apagar as perguntas da sua revisão. Elas são globais: valem para todo artigo,
+inclusive os de buscas futuras.
+
+O botão **Perguntas** de cada linha leva para `/artigos/<id>/perguntas`, onde
+todas as perguntas ativas aparecem com um campo de texto para a resposta. As
+respostas são gravadas sozinhas cerca de 1 s depois que você para de digitar.
+
+Apagar uma pergunta apaga junto as respostas dela em **todos** os artigos — a
+confirmação avisa. Para tirar uma pergunta de circulação sem perder o que já
+foi escrito, use `PATCH /api/perguntas/<id> {"ativa": false}`.
 
 ---
 

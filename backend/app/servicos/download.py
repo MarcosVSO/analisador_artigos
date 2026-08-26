@@ -11,7 +11,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 
 from .. import config
 from ..banco import sessao_escopo
@@ -23,12 +23,19 @@ LOG = logging.getLogger(__name__)
 
 # Evita que dois cliques no botao disparem dois downloads da mesma busca.
 _buscas_ativas: set[int] = set()
+# Mesma ideia para o botao de baixar um artigo isolado.
+_artigos_ativos: set[int] = set()
 _trava = threading.Lock()
 
 
 def em_andamento(busca_id: int) -> bool:
     with _trava:
         return busca_id in _buscas_ativas
+
+
+def artigo_em_andamento(artigo_id: int) -> bool:
+    with _trava:
+        return artigo_id in _artigos_ativos
 
 
 def _processar_artigo(artigo_id: int) -> None:
@@ -80,18 +87,27 @@ def _processar_artigo(artigo_id: int) -> None:
             )
 
 
-def _consulta_alvos(busca_id: int, incluir_falhas: bool):
+def _consulta_alvos(busca_id: int, incluir_falhas: bool, limite: int | None = None):
     """Quais artigos o download vai processar.
 
     Por padrao so os que nunca foram tentados (`pendente`). Refazer os
     `paywall` a cada clique custaria varias requisicoes por artigo para
     reconfirmar o que ja se sabe - por isso repetir uma falha e uma acao
     separada e explicita.
+
+    `limite` atende o "Baixar N pendentes": mesma ordem da listagem (mais
+    citados primeiro), para que baixar 20 traga os 20 que voce leria antes.
     """
     consulta = select(Artigo.id).where(Artigo.busca_id == busca_id)
     if incluir_falhas:
-        return consulta.where(Artigo.baixado.is_(False))
-    return consulta.where(Artigo.pdf_status == StatusPDF.PENDENTE.value)
+        consulta = consulta.where(Artigo.baixado.is_(False))
+    else:
+        consulta = consulta.where(Artigo.pdf_status == StatusPDF.PENDENTE.value)
+
+    consulta = consulta.order_by(desc(Artigo.citacoes), desc(Artigo.ano), Artigo.id)
+    if limite is not None and limite > 0:
+        consulta = consulta.limit(limite)
+    return consulta
 
 
 def _processar_isolado(artigo_id: int) -> None:
@@ -116,14 +132,16 @@ def _processar_isolado(artigo_id: int) -> None:
             LOG.exception("Nao consegui nem registrar o erro do artigo %s", artigo_id)
 
 
-def _executar(busca_id: int, incluir_falhas: bool) -> None:
+def _executar(busca_id: int, incluir_falhas: bool, limite: int | None) -> None:
     try:
         with sessao_escopo() as sessao:
             busca = sessao.get(Busca, busca_id)
             if busca is None:
                 return
             busca.status = StatusBusca.BAIXANDO.value
-            ids = list(sessao.scalars(_consulta_alvos(busca_id, incluir_falhas)))
+            ids = list(
+                sessao.scalars(_consulta_alvos(busca_id, incluir_falhas, limite))
+            )
 
         LOG.info("Iniciando download de %s artigos da busca %s", len(ids), busca_id)
         with ThreadPoolExecutor(max_workers=config.DOWNLOADS_SIMULTANEOS) as pool:
@@ -144,7 +162,9 @@ def _executar(busca_id: int, incluir_falhas: bool) -> None:
             _buscas_ativas.discard(busca_id)
 
 
-def disparar(busca_id: int, incluir_falhas: bool = False) -> bool:
+def disparar(
+    busca_id: int, incluir_falhas: bool = False, limite: int | None = None
+) -> bool:
     """Inicia o download em background. False se ja estava rodando."""
     with _trava:
         if busca_id in _buscas_ativas:
@@ -153,9 +173,39 @@ def disparar(busca_id: int, incluir_falhas: bool = False) -> bool:
 
     thread = threading.Thread(
         target=_executar,
-        args=(busca_id, incluir_falhas),
+        args=(busca_id, incluir_falhas, limite),
         daemon=True,
         name=f"download-{busca_id}",
+    )
+    thread.start()
+    return True
+
+
+def _executar_artigo(artigo_id: int) -> None:
+    try:
+        _processar_isolado(artigo_id)
+    finally:
+        with _trava:
+            _artigos_ativos.discard(artigo_id)
+
+
+def disparar_artigo(artigo_id: int) -> bool:
+    """Baixa um artigo so - o botao da linha da tabela.
+
+    Independente da trava por busca: da para pedir um artigo individual
+    enquanto um lote roda, e o lock por id evita dois cliques concorrentes
+    gravarem o mesmo arquivo.
+    """
+    with _trava:
+        if artigo_id in _artigos_ativos:
+            return False
+        _artigos_ativos.add(artigo_id)
+
+    thread = threading.Thread(
+        target=_executar_artigo,
+        args=(artigo_id,),
+        daemon=True,
+        name=f"download-artigo-{artigo_id}",
     )
     thread.start()
     return True

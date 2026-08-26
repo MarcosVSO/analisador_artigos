@@ -492,3 +492,139 @@ tbody tr:hover {
 a {
   color: var(--acento);
 }
+
+/* --- cabecalho com acao --- */
+.cabecalho-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cabecalho-topo h1 {
+  margin-bottom: 4px;
+}
+
+/* --- acoes por linha da tabela --- */
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.botao-compacto {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: var(--superficie);
+  color: var(--texto);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.botao-compacto:hover:not(:disabled) {
+  border-color: var(--acento);
+}
+
+.botao-icone {
+  padding: 4px 9px;
+  font-size: 13px;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto);
+  text-decoration: none;
+  display: inline-block;
+  line-height: 1.4;
+}
+
+.botao-icone:hover {
+  border-color: var(--acento);
+}
+
+/* --- "Baixar [N] pendentes" --- */
+.grupo-baixar-n {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grupo-baixar-n input {
+  width: 74px;
+  padding: 8px 9px;
+  text-align: center;
+}
+
+/* --- drawer de perguntas --- */
+.fundo-modal:has(.drawer) {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.drawer {
+  background: var(--superficie);
+  border-left: 1px solid var(--borda);
+  width: min(520px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -18px 0 50px rgba(0, 0, 0, 0.35);
+}
+
+.lista-perguntas {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 0;
+}
+
+.lista-perguntas li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--borda);
+}
+
+.lista-perguntas li:last-child {
+  border-bottom: none;
+}
+
+.acoes-pergunta {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.acoes-pergunta button {
+  padding: 4px 11px;
+  font-size: 12px;
+}
+
+/* --- pagina de respostas --- */
+.trilha {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.titulo-pagina {
+  font-size: 19px;
+  margin: 0 0 6px;
+  line-height: 1.35;
+}
+
+.rotulo-pergunta {
+  text-transform: none;
+  font-size: 14px;
+  letter-spacing: 0;
+  color: var(--texto);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.estado-salvamento {
+  min-height: 18px;
+  margin-top: 6px;
+}

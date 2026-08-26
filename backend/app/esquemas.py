@@ -77,6 +77,44 @@ class Progresso(BaseModel):
     a_baixar: int
 
 
+class PedidoPergunta(BaseModel):
+    texto: str = Field(min_length=3, max_length=2000)
+
+
+class PatchPergunta(BaseModel):
+    texto: str | None = Field(default=None, min_length=3, max_length=2000)
+    ordem: int | None = None
+    ativa: bool | None = None
+
+
+class PerguntaResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    texto: str
+    ordem: int
+    ativa: bool
+
+
+class PedidoResposta(BaseModel):
+    texto: str = Field(default="", max_length=20000)
+
+
+class RespostaItem(BaseModel):
+    """Uma pergunta ativa junto da resposta ja dada para este artigo."""
+
+    pergunta_id: int
+    pergunta_texto: str
+    ordem: int
+    texto: str
+
+
+class PainelRespostas(BaseModel):
+    artigo: ArtigoResposta
+    itens: list[RespostaItem]
+    respondidas: int
+
+
 class ConfiguracaoResposta(BaseModel):
     """O frontend usa isso para pre-preencher o campo e avisar se falta chave."""
 

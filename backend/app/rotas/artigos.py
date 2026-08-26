@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import math
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy import desc, func, select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
 
 from .. import config
 from ..banco import obter_sessao
 from ..esquemas import ArtigoResposta, PaginaArtigos
 from ..modelos import Artigo, StatusPDF
+from ..servicos import download
 
 roteador = APIRouter(prefix="/api", tags=["artigos"])
 
@@ -21,6 +23,18 @@ roteador = APIRouter(prefix="/api", tags=["artigos"])
 # pagina do artigo.
 STATUS_PAYWALL = (StatusPDF.PAYWALL.value, StatusPDF.LANDING.value)
 
+Ordenacao = Literal["citacoes", "ano_desc", "ano_asc", "titulo"]
+
+# `Artigo.id` no fim de toda ordenacao: sem um criterio de desempate estavel,
+# duas paginas consecutivas podem repetir ou pular um artigo quando varios
+# empatam no mesmo ano.
+ORDENS = {
+    "citacoes": (desc(Artigo.citacoes), desc(Artigo.ano), Artigo.id),
+    "ano_desc": (desc(Artigo.ano), desc(Artigo.citacoes), Artigo.id),
+    "ano_asc": (asc(Artigo.ano), desc(Artigo.citacoes), Artigo.id),
+    "titulo": (asc(Artigo.titulo), Artigo.id),
+}
+
 
 @roteador.get("/artigos", response_model=PaginaArtigos)
 def listar_artigos(
@@ -28,6 +42,7 @@ def listar_artigos(
     baixado: bool | None = Query(default=None, description="None = ambos"),
     paywall: bool | None = Query(default=None, description="None = ambos"),
     texto: str | None = Query(default=None, description="Filtra por titulo"),
+    ordenar_por: Ordenacao = "citacoes",
     pagina: int = Query(default=1, ge=1),
     por_pagina: int = Query(default=15, ge=1, le=100),
     sessao: Session = Depends(obter_sessao),
@@ -51,7 +66,7 @@ def listar_artigos(
         sessao.scalars(
             select(Artigo)
             .where(*filtros)
-            .order_by(desc(Artigo.citacoes), desc(Artigo.ano), Artigo.id)
+            .order_by(*ORDENS[ordenar_por])
             .offset((pagina - 1) * por_pagina)
             .limit(por_pagina)
         )
@@ -77,9 +92,27 @@ def detalhar_artigo(
     return artigo
 
 
+@roteador.post("/artigos/{artigo_id}/baixar", response_model=ArtigoResposta)
+def baixar_artigo(
+    artigo_id: int, sessao: Session = Depends(obter_sessao)
+) -> Artigo:
+    """Dispara a aquisicao do PDF de um artigo so (o botao da linha)."""
+    artigo = sessao.get(Artigo, artigo_id)
+    if artigo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Artigo nao encontrado.")
+    if artigo.baixado:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Este PDF ja foi baixado.")
+    download.disparar_artigo(artigo_id)
+    return artigo
+
+
 @roteador.get("/artigos/{artigo_id}/pdf")
-def abrir_pdf(artigo_id: int, sessao: Session = Depends(obter_sessao)) -> FileResponse:
-    """Serve o PDF para abrir em nova aba (inline, nao download)."""
+def abrir_pdf(
+    artigo_id: int,
+    anexo: bool = Query(default=False, description="true = salvar em vez de abrir"),
+    sessao: Session = Depends(obter_sessao),
+) -> FileResponse:
+    """Serve o PDF. Inline por padrao; com `anexo=true`, forca o salvamento."""
     artigo = sessao.get(Artigo, artigo_id)
     if artigo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Artigo nao encontrado.")
@@ -98,8 +131,9 @@ def abrir_pdf(artigo_id: int, sessao: Session = Depends(obter_sessao)) -> FileRe
             "O registro aponta para um PDF que nao esta mais no disco.",
         )
 
+    disposicao = "attachment" if anexo else "inline"
     return FileResponse(
         caminho,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{caminho.name}"'},
+        headers={"Content-Disposition": f'{disposicao}; filename="{caminho.name}"'},
     )
