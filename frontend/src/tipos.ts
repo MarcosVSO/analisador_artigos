@@ -30,6 +30,17 @@ export interface Busca {
   status: string;
   arquivo_bruto: string | null;
   criado_em: string;
+  artigos_total: number;
+  artigos_baixados: number;
+  respostas_escritas: number;
+}
+
+export interface ResumoRemocao {
+  busca_id: number;
+  artigos_removidos: number;
+  pdfs_apagados: number;
+  respostas_apagadas: number;
+  arquivo_bruto_apagado: boolean;
 }
 
 export interface Progresso {

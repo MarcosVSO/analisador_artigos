@@ -666,3 +666,30 @@ label.botao-icone.anexar {
   padding: 4px 9px;
   font-weight: 400;
 }
+
+/* --- lista de linhas de pesquisa --- */
+.linha-ativa {
+  background: var(--neutro-fundo);
+}
+
+.query-busca {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 520px;
+  /* A string de busca pode ter centenas de caracteres; 2 linhas bastam para
+     reconhecer qual é, e o title mostra a íntegra. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.botao-compacto.perigo {
+  color: var(--erro-texto);
+}
+
+.botao-compacto.perigo:hover:not(:disabled) {
+  border-color: var(--erro-texto);
+}

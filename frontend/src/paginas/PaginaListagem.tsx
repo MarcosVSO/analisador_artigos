@@ -4,6 +4,7 @@ import { api, ErroApi } from "../api";
 import { DrawerPerguntas } from "../componentes/DrawerPerguntas";
 import { FiltrosArtigos } from "../componentes/FiltrosArtigos";
 import { FormularioBusca } from "../componentes/FormularioBusca";
+import { ListaBuscas } from "../componentes/ListaBuscas";
 import { ModalArtigo } from "../componentes/ModalArtigo";
 import { PainelProgresso } from "../componentes/PainelProgresso";
 import { TabelaArtigos } from "../componentes/TabelaArtigos";
@@ -22,7 +23,9 @@ const FILTROS_VAZIOS: Filtros = { texto: "", baixado: null, paywall: null };
 
 export function PaginaListagem() {
   const [config, setConfig] = useState<Configuracao | null>(null);
+  const [buscas, setBuscas] = useState<Busca[]>([]);
   const [busca, setBusca] = useState<Busca | null>(null);
+  const [removendoId, setRemovendoId] = useState<number | null>(null);
   const [progresso, setProgresso] = useState<Progresso | null>(null);
   const [pagina, setPagina] = useState<PaginaArtigos | null>(null);
 
@@ -53,12 +56,19 @@ export function PaginaListagem() {
     api
       .listarBuscas()
       .then((lista) => {
+        setBuscas(lista);
         if (lista.length) setBusca(lista[0]);
       })
       .catch(() => {
         /* backend fora do ar: o erro aparece quando o usuario buscar */
       });
   }, [carregarPerguntas]);
+
+  const recarregarBuscas = useCallback(async () => {
+    const lista = await api.listarBuscas();
+    setBuscas(lista);
+    return lista;
+  }, []);
 
   const recarregar = useCallback(
     async (buscaId: number, numero: number, comSpinner: boolean) => {
@@ -122,11 +132,64 @@ export function PaginaListagem() {
     setFiltros(FILTROS_VAZIOS);
     setNumeroPagina(1);
     try {
-      setBusca(await api.criarBusca(query));
+      const nova = await api.criarBusca(query);
+      setBusca(nova);
+      await recarregarBuscas();
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Falha inesperada na busca.");
     } finally {
       setBuscando(false);
+    }
+  }
+
+  function aoSelecionarBusca(escolhida: Busca) {
+    setErro(null);
+    setFiltros(FILTROS_VAZIOS);
+    setNumeroPagina(1);
+    setProgresso(null);
+    setPagina(null);
+    setBusca(escolhida);
+  }
+
+  async function aoRemoverBusca(alvo: Busca) {
+    const partes = [
+      `${alvo.artigos_total} artigos`,
+      `${alvo.artigos_baixados} PDFs baixados`,
+    ];
+    if (alvo.respostas_escritas > 0) {
+      partes.push(`${alvo.respostas_escritas} RESPOSTAS JÁ ESCRITAS`);
+    }
+    const confirmado = window.confirm(
+      `Apagar esta linha de pesquisa?
+
+${alvo.query}
+
+` +
+        `Serão apagados: ${partes.join(", ")}.
+
+` +
+        `Isto não pode ser desfeito. PDFs que você colocou na pasta à mão, ` +
+        `sem vínculo com um artigo, não são tocados.`,
+    );
+    if (!confirmado) return;
+
+    setErro(null);
+    setRemovendoId(alvo.id);
+    try {
+      await api.removerBusca(alvo.id);
+      const lista = await recarregarBuscas();
+      if (busca?.id === alvo.id) {
+        const proxima = lista[0] ?? null;
+        setProgresso(null);
+        setPagina(null);
+        setFiltros(FILTROS_VAZIOS);
+        setNumeroPagina(1);
+        setBusca(proxima);
+      }
+    } catch (e) {
+      if (e instanceof ErroApi) setErro(e.message);
+    } finally {
+      setRemovendoId(null);
     }
   }
 
@@ -201,6 +264,14 @@ export function PaginaListagem() {
         queryInicial={config?.query_padrao ?? ""}
         ocupado={buscando}
         onBuscar={aoBuscar}
+      />
+
+      <ListaBuscas
+        buscas={buscas}
+        ativa={busca}
+        removendoId={removendoId}
+        onSelecionar={aoSelecionarBusca}
+        onRemover={aoRemoverBusca}
       />
 
       {busca && (

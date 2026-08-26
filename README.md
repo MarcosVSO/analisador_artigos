@@ -16,10 +16,11 @@ backend/                  API FastAPI + SQLite
     config.py             caminhos e variáveis de ambiente
     banco.py              engine e sessão do SQLite
     modelos.py            tabelas: buscas, artigos, perguntas, respostas
+                          (buscas = linhas de pesquisa; apagar faz cascade)
     esquemas.py           contratos de entrada/saída da API
     main.py               aplicação FastAPI
     rotas/
-      buscas.py           executar busca, progresso, disparar download
+      buscas.py           linhas de pesquisa: criar, listar, apagar, progresso
       artigos.py          listagem filtrada, download por artigo, PDF
       perguntas.py        perguntas de pesquisa e respostas por artigo
     servicos/
@@ -39,7 +40,8 @@ frontend/                 React + Vite + TypeScript
     paginas/
       PaginaListagem.tsx  busca, filtros e tabela de artigos
       PaginaPerguntas.tsx respostas de um artigo
-    componentes/          formulário, progresso, tabela, modal, drawer
+    componentes/          formulário, lista de buscas, progresso, tabela,
+                          modal, drawer
 
 dados/                    gerado em execução, fora do git
   pdfs/                   PDFs baixados
@@ -108,6 +110,27 @@ não há CORS no caminho. A documentação interativa da API fica em
 
 A busca e o download são passos separados de propósito: você vê o que veio
 antes de gastar tempo de rede baixando.
+
+---
+
+## Linhas de pesquisa
+
+Cada busca no Scopus cria uma **linha de pesquisa** nova. As anteriores não são
+descartadas: ficam no banco com os artigos, os PDFs e as respostas delas.
+
+O painel **Linhas de pesquisa**, logo abaixo do formulário, lista todas com
+data, número de artigos, PDFs baixados e respostas escritas. **Abrir** troca a
+listagem para aquela linha; **Apagar** remove a linha inteira.
+
+Apagar leva junto os artigos, as respostas e os PDFs **daquela** busca — a
+confirmação diz os números antes. Não pode ser desfeito.
+
+> A exclusão apaga apenas os arquivos registrados em `pdf_caminho` dos artigos
+> da busca. Ela **nunca varre** `dados/pdfs/`: a pasta pode conter PDFs que você
+> colocou ali à mão, e um `glob` levaria esses junto.
+
+Uma linha com download em andamento não pode ser apagada (`409`) — espere o
+lote terminar.
 
 ### Filtros
 

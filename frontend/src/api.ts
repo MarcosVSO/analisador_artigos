@@ -9,6 +9,7 @@ import type {
   Pergunta,
   Progresso,
   RespostaItem,
+  ResumoRemocao,
 } from "./tipos";
 
 /** Erro da API com a mensagem que o backend mandou, nao um "Failed to fetch". */
@@ -73,6 +74,12 @@ export const api = {
     }),
 
   listarBuscas: () => pedir<Busca[]>("/api/buscas"),
+
+  obterBusca: (buscaId: number) => pedir<Busca>(`/api/buscas/${buscaId}`),
+
+  /** Apaga a linha de pesquisa com seus artigos, respostas e PDFs. */
+  removerBusca: (buscaId: number) =>
+    pedir<ResumoRemocao>(`/api/buscas/${buscaId}`, { method: "DELETE" }),
 
   progresso: (buscaId: number) => pedir<Progresso>(`/api/buscas/${buscaId}/progresso`),
 

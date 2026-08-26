@@ -29,6 +29,22 @@ class BuscaResposta(BaseModel):
     arquivo_bruto: str | None
     criado_em: datetime
 
+    # Contadores calculados na hora - servem para a lista de linhas de
+    # pesquisa mostrar o que cada uma tem antes de voce trocar ou apagar.
+    artigos_total: int = 0
+    artigos_baixados: int = 0
+    respostas_escritas: int = 0
+
+
+class ResumoRemocao(BaseModel):
+    """O que uma exclusao de linha de pesquisa levou junto."""
+
+    busca_id: int
+    artigos_removidos: int
+    pdfs_apagados: int
+    respostas_apagadas: int
+    arquivo_bruto_apagado: bool
+
 
 class ArtigoResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
