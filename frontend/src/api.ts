@@ -23,11 +23,17 @@ export class ErroApi extends Error {
 }
 
 async function pedir<T>(url: string, init?: RequestInit): Promise<T> {
+  // Com FormData o Content-Type tem que ficar por conta do browser: e ele
+  // que gera o `boundary` do multipart. Definir "application/json" aqui
+  // deixaria o corpo ilegivel para o servidor.
+  const ehFormulario = init?.body instanceof FormData;
   let resposta: Response;
   try {
     resposta = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
       ...init,
+      headers: ehFormulario
+        ? init?.headers
+        : { "Content-Type": "application/json", ...init?.headers },
     });
   } catch {
     throw new ErroApi(
@@ -81,6 +87,16 @@ export const api = {
 
   baixarArtigo: (artigoId: number) =>
     pedir<Artigo>(`/api/artigos/${artigoId}/baixar`, { method: "POST" }),
+
+  /** Vincula um PDF do seu computador ao artigo. */
+  anexarPdf: (artigoId: number, arquivo: File) => {
+    const corpo = new FormData();
+    corpo.append("arquivo", arquivo);
+    return pedir<Artigo>(`/api/artigos/${artigoId}/pdf`, {
+      method: "POST",
+      body: corpo,
+    });
+  },
 
   listarArtigos: (
     buscaId: number,

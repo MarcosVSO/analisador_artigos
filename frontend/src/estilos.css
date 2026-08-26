@@ -628,3 +628,41 @@ a {
   min-height: 18px;
   margin-top: 6px;
 }
+
+/* --- botao de anexar PDF (label com input file escondido) --- */
+.anexar {
+  position: relative;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* A regra global de `label` (usada nos formularios) poe uppercase,
+     letter-spacing, cor fraca e margin-bottom. Num botao de linha isso vira
+     "ANEXAR PDF" desalinhado - por isso o reset explicito aqui. */
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--texto);
+  margin-bottom: 0;
+}
+
+.anexar input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.anexar[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+label.botao-icone.anexar {
+  font-size: 13px;
+  padding: 4px 9px;
+  font-weight: 400;
+}

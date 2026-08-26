@@ -128,13 +128,28 @@ podem repetir ou sumir entre páginas consecutivas.
 | **Baixar [N] pendentes** | Só os N primeiros pendentes, na ordem da listagem |
 | **Tentar novamente** | Os que ficaram como `paywall`, `landing` ou `erro` |
 | **Baixar** (na linha) | Só aquele artigo |
+| **Anexar PDF** (na linha) | Vincula um PDF do seu computador |
 
 A separação do "tentar novamente" existe porque refazer os `paywall` custa
 várias requisições por artigo para reconfirmar o que já se sabe. Ele só
 aparece quando há o que retentar.
 
-Cada linha com PDF baixado tem **Abrir PDF** (abre em nova aba) e **⬇**
-(salva o arquivo no computador).
+Cada linha com PDF baixado tem **Abrir PDF** (abre em nova aba), **⬇** (salva
+o arquivo no computador) e **📎** (substitui por outro PDF).
+
+### Anexar PDF manualmente
+
+O botão **Anexar PDF** de cada linha abre o seletor de arquivos e vincula o PDF
+escolhido ao artigo: o status vira `baixado`, a fonte fica como `manual` e o
+arquivo é copiado para `dados/pdfs/` com o mesmo padrão de nome dos automáticos.
+
+É o caminho para os ~80% que a resolução automática não alcança — artigo sob
+paywall que você baixa pelo acesso da universidade e sobe aqui.
+
+O backend confere a assinatura `%PDF` no **conteúdo**, não no nome nem no
+`Content-Type`: renomear um `.docx` para `.pdf` é recusado com 415. O limite é
+150 MB, e a gravação usa arquivo `.parcial` renomeado só no fim, para que um
+envio interrompido não deixe um PDF truncado no lugar.
 
 ---
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from ..banco import obter_sessao
 from ..esquemas import ArtigoResposta, PaginaArtigos
 from ..modelos import Artigo, StatusPDF
 from ..servicos import download
+from ..servicos.busca import nome_arquivo_pdf
 
 roteador = APIRouter(prefix="/api", tags=["artigos"])
 
@@ -24,6 +25,11 @@ roteador = APIRouter(prefix="/api", tags=["artigos"])
 STATUS_PAYWALL = (StatusPDF.PAYWALL.value, StatusPDF.LANDING.value)
 
 Ordenacao = Literal["citacoes", "ano_desc", "ano_asc", "titulo"]
+
+# Teto do upload manual. Artigo com muita figura passa de 40 MB; 150 da folga
+# sem deixar um envio errado encher o disco.
+MAX_BYTES_UPLOAD = 150 * 1024 * 1024
+PEDACO_BYTES = 1024 * 1024
 
 # `Artigo.id` no fim de toda ordenacao: sem um criterio de desempate estavel,
 # duas paginas consecutivas podem repetir ou pular um artigo quando varios
@@ -103,6 +109,74 @@ def baixar_artigo(
     if artigo.baixado:
         raise HTTPException(status.HTTP_409_CONFLICT, "Este PDF ja foi baixado.")
     download.disparar_artigo(artigo_id)
+    return artigo
+
+
+@roteador.post("/artigos/{artigo_id}/pdf", response_model=ArtigoResposta)
+async def anexar_pdf(
+    artigo_id: int,
+    arquivo: UploadFile = File(..., description="O PDF do artigo"),
+    sessao: Session = Depends(obter_sessao),
+) -> Artigo:
+    """Vincula um PDF que voce mesmo baixou.
+
+    E o caminho para os ~80% que a resolucao automatica nao alcanca: artigo
+    sob paywall que voce pega pelo acesso da universidade e sobe aqui.
+
+    Escreve num `.parcial` e so renomeia no fim, pelo mesmo motivo do
+    download automatico - um upload interrompido nao pode deixar no lugar um
+    PDF truncado que o leitor abre sem reclamar.
+    """
+    artigo = sessao.get(Artigo, artigo_id)
+    if artigo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Artigo nao encontrado.")
+
+    destino = config.DIR_PDFS / nome_arquivo_pdf(artigo)
+    parcial = destino.with_suffix(destino.suffix + ".parcial")
+    tamanho = 0
+
+    try:
+        primeiro = await arquivo.read(PEDACO_BYTES)
+        # Confere a assinatura no conteudo, nao no nome nem no content-type:
+        # renomear um .docx para .pdf nao pode passar.
+        if not primeiro.startswith(b"%PDF"):
+            raise HTTPException(
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                "O arquivo enviado nao e um PDF (nao comeca com %PDF).",
+            )
+
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        with open(parcial, "wb") as saida:
+            pedaco = primeiro
+            while pedaco:
+                tamanho += len(pedaco)
+                if tamanho > MAX_BYTES_UPLOAD:
+                    raise HTTPException(
+                        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        f"PDF acima do limite de {MAX_BYTES_UPLOAD // (1024 * 1024)} MB.",
+                    )
+                saida.write(pedaco)
+                pedaco = await arquivo.read(PEDACO_BYTES)
+        parcial.replace(destino)
+    except HTTPException:
+        parcial.unlink(missing_ok=True)
+        raise
+    except OSError as exc:
+        parcial.unlink(missing_ok=True)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, f"Falha ao gravar: {exc}"
+        ) from exc
+    finally:
+        await arquivo.close()
+
+    artigo.baixado = True
+    artigo.pdf_status = StatusPDF.BAIXADO.value
+    artigo.pdf_caminho = str(destino.relative_to(config.RAIZ)).replace("\\", "/")
+    artigo.pdf_bytes = tamanho
+    artigo.pdf_fonte = "manual"
+    artigo.pdf_detalhe = f"Anexado manualmente ({arquivo.filename})."
+    sessao.commit()
+    sessao.refresh(artigo)
     return artigo
 
 

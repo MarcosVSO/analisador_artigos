@@ -8,17 +8,70 @@ interface Props {
   pagina: PaginaArtigos | null;
   carregando: boolean;
   baixandoIds: Set<number>;
+  anexandoIds: Set<number>;
   onDetalhar: (artigo: Artigo) => void;
   onBaixarArtigo: (artigo: Artigo) => void;
+  onAnexarPdf: (artigo: Artigo, arquivo: File) => void;
   onMudarPagina: (pagina: number) => void;
+}
+
+interface PropsAnexar {
+  artigo: Artigo;
+  anexando: boolean;
+  onAnexar: (artigo: Artigo, arquivo: File) => void;
+}
+
+/** Botao de anexar PDF do computador.
+ *
+ *  E um <label> com <input type="file"> escondido dentro em vez de um
+ *  <button> + ref: clicar no label ja abre o seletor do sistema, sem JS.
+ */
+function BotaoAnexar({ artigo, anexando, onAnexar }: PropsAnexar) {
+  const substituir = artigo.baixado;
+  return (
+    <label
+      className={substituir ? "botao-icone anexar" : "botao-compacto anexar"}
+      title={
+        substituir
+          ? "Substituir por outro PDF do computador"
+          : "Selecionar o PDF deste artigo no computador"
+      }
+      aria-disabled={anexando}
+    >
+      {anexando ? (
+        <>
+          <span className="girando" />
+          {substituir ? "" : "Enviando"}
+        </>
+      ) : substituir ? (
+        "📎"
+      ) : (
+        "Anexar PDF"
+      )}
+      <input
+        type="file"
+        accept="application/pdf,.pdf"
+        disabled={anexando}
+        onChange={(e) => {
+          const arquivo = e.target.files?.[0];
+          // Zerar o value permite escolher o MESMO arquivo de novo depois de
+          // um erro - sem isso o onChange nao dispara na segunda vez.
+          e.target.value = "";
+          if (arquivo) onAnexar(artigo, arquivo);
+        }}
+      />
+    </label>
+  );
 }
 
 export function TabelaArtigos({
   pagina,
   carregando,
   baixandoIds,
+  anexandoIds,
   onDetalhar,
   onBaixarArtigo,
+  onAnexarPdf,
   onMudarPagina,
 }: Props) {
   if (carregando && !pagina) {
@@ -58,6 +111,7 @@ export function TabelaArtigos({
             {pagina.itens.map((artigo) => {
               const etiqueta = ETIQUETAS[artigo.pdf_status] ?? ETIQUETAS.pendente;
               const baixando = baixandoIds.has(artigo.id);
+              const anexando = anexandoIds.has(artigo.id);
               return (
                 <tr key={artigo.id}>
                   <td>
@@ -113,23 +167,35 @@ export function TabelaArtigos({
                           >
                             ⬇
                           </a>
+                          <BotaoAnexar
+                            artigo={artigo}
+                            anexando={anexando}
+                            onAnexar={onAnexarPdf}
+                          />
                         </>
                       ) : (
-                        <button
-                          className="botao-compacto"
-                          onClick={() => onBaixarArtigo(artigo)}
-                          disabled={baixando}
-                          title="Tentar baixar o PDF deste artigo agora"
-                        >
-                          {baixando ? (
-                            <>
-                              <span className="girando" />
-                              Baixando
-                            </>
-                          ) : (
-                            "Baixar"
-                          )}
-                        </button>
+                        <>
+                          <button
+                            className="botao-compacto"
+                            onClick={() => onBaixarArtigo(artigo)}
+                            disabled={baixando}
+                            title="Tentar baixar o PDF deste artigo agora"
+                          >
+                            {baixando ? (
+                              <>
+                                <span className="girando" />
+                                Baixando
+                              </>
+                            ) : (
+                              "Baixar"
+                            )}
+                          </button>
+                          <BotaoAnexar
+                            artigo={artigo}
+                            anexando={anexando}
+                            onAnexar={onAnexarPdf}
+                          />
+                        </>
                       )}
                       <Link
                         className="botao-compacto"

@@ -34,6 +34,7 @@ export function PaginaListagem() {
   const [drawerAberto, setDrawerAberto] = useState(false);
   const [totalPerguntas, setTotalPerguntas] = useState(0);
   const [baixandoIds, setBaixandoIds] = useState<Set<number>>(new Set());
+  const [anexandoIds, setAnexandoIds] = useState<Set<number>>(new Set());
 
   const [buscando, setBuscando] = useState(false);
   const [carregando, setCarregando] = useState(false);
@@ -139,6 +140,25 @@ export function PaginaListagem() {
     }
   }
 
+  async function aoAnexarPdf(artigo: Artigo, arquivo: File) {
+    setErro(null);
+    setAnexandoIds((atuais) => new Set(atuais).add(artigo.id));
+    try {
+      await api.anexarPdf(artigo.id, arquivo);
+      // Recarrega a pagina inteira em vez de so trocar a linha: o painel de
+      // progresso tambem muda (um pendente a menos, um baixado a mais).
+      if (busca) await recarregar(busca.id, numeroPagina, false);
+    } catch (e) {
+      if (e instanceof ErroApi) setErro(e.message);
+    } finally {
+      setAnexandoIds((atuais) => {
+        const restantes = new Set(atuais);
+        restantes.delete(artigo.id);
+        return restantes;
+      });
+    }
+  }
+
   async function aoBaixarArtigo(artigo: Artigo) {
     setErro(null);
     setBaixandoIds((atuais) => new Set(atuais).add(artigo.id));
@@ -199,8 +219,10 @@ export function PaginaListagem() {
         pagina={pagina}
         carregando={carregando}
         baixandoIds={baixandoIds}
+        anexandoIds={anexandoIds}
         onDetalhar={setDetalhado}
         onBaixarArtigo={aoBaixarArtigo}
+        onAnexarPdf={aoAnexarPdf}
         onMudarPagina={setNumeroPagina}
       />
 

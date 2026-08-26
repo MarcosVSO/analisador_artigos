@@ -28,7 +28,11 @@ export const ETIQUETAS: Record<
 export function formatarTamanho(bytes: number | null): string {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  const kb = bytes / 1024;
+  // Arredondar direto mostraria "0 KB" para um arquivo pequeno, o que parece
+  // arquivo vazio - e o sintoma exato de um upload que deu errado.
+  return kb >= 1 ? `${Math.round(kb)} KB` : "<1 KB";
 }
 
 export function formatarAutores(autores: string[]): string {
