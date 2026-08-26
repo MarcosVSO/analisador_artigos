@@ -32,6 +32,28 @@ SCOPUS_INSTTOKEN = os.getenv("SCOPUS_INSTTOKEN", "").strip() or None
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
 SCOPUS_QUERY_PADRAO = os.getenv("SCOPUS_QUERY", "").strip()
 
+# --- Analise por IA ------------------------------------------------------
+# "claude_code" invoca a CLI do Claude Code em modo headless, usando o SEU
+# login (assinatura Pro/Max). "api" usa a Anthropic API, que e cobrada por
+# token e exige ANTHROPIC_API_KEY - util para processar em lote sem
+# ninguem na frente.
+MODO_ANALISE = os.getenv("MODO_ANALISE", "claude_code").strip()
+
+# Caminho da CLI. Vazio = procurar no PATH.
+CLAUDE_CLI = os.getenv("CLAUDE_CLI", "").strip()
+
+# Modelo no modo claude_code. Vazio = respeita o padrao da sua CLI
+# (o que voce escolheu em /model). Aceita alias: opus, sonnet, haiku.
+MODELO_ANALISE_CLI = os.getenv("MODELO_ANALISE_CLI", "").strip()
+
+# Um artigo longo obriga varias leituras de 20 paginas, entao a analise
+# pode passar de dois minutos.
+TIMEOUT_ANALISE_S = int(os.getenv("TIMEOUT_ANALISE_S", "600"))
+
+# So usados no modo "api".
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+MODELO_ANALISE = os.getenv("MODELO_ANALISE", "claude-opus-5").strip()
+
 # A Etapa 0 mostrou que esta chave nao tem direito a view=COMPLETE (a Scopus
 # responde 401 com "not authorized to access the requested view"). Entao a
 # busca roda em STANDARD e o abstract vem do OpenAlex, que e gratuito e nao

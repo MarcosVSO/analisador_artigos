@@ -92,10 +92,27 @@ export interface PainelRespostas {
   respondidas: number;
 }
 
+export interface ResumoAnalise {
+  perguntas_respondidas: number;
+  nao_encontrados: number;
+  modelo: string;
+  tokens_entrada: number;
+  tokens_saida: number;
+  custo_estimado_usd: number;
+}
+
+export interface RespostaAnalise {
+  painel: PainelRespostas;
+  resumo: ResumoAnalise;
+}
+
 export interface Configuracao {
   query_padrao: string;
   credenciais_ok: boolean;
   aviso: string;
   view_scopus: string;
+  modo_analise: string;
+  analise_pronta: boolean;
+  analise_aviso: string;
 }
 

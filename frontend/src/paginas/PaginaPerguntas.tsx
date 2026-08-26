@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { api, ErroApi, urlPdf } from "../api";
 import { ETIQUETAS, formatarAutores } from "../componentes/etiquetas";
-import type { PainelRespostas } from "../tipos";
+import type { Configuracao, PainelRespostas, ResumoAnalise } from "../tipos";
 
 /** Quanto tempo sem digitar antes de gravar. Salvar a cada tecla geraria uma
  *  requisicao por caractere; esperar o "Salvar" perderia texto se a aba
@@ -21,8 +21,15 @@ export function PaginaPerguntas() {
   const [estados, setEstados] = useState<Record<number, EstadoSalvamento>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [analisando, setAnalisando] = useState(false);
+  const [resumoIA, setResumoIA] = useState<ResumoAnalise | null>(null);
+  const [config, setConfig] = useState<Configuracao | null>(null);
 
   const temporizadores = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    api.configuracao().then(setConfig).catch(() => setConfig(null));
+  }, []);
 
   useEffect(() => {
     if (!Number.isFinite(id)) return;
@@ -57,6 +64,26 @@ export function PaginaPerguntas() {
     },
     [id],
   );
+
+  async function analisarComIA() {
+    setAnalisando(true);
+    setErro(null);
+    setResumoIA(null);
+    // Um autosave pendente sobrescreveria o texto que a IA acabou de gravar,
+    // porque o rascunho local ainda nao conhece o bloco novo.
+    Object.values(temporizadores.current).forEach(clearTimeout);
+    try {
+      const { painel: novo, resumo } = await api.analisarComIA(id);
+      setPainel(novo);
+      setRascunhos(Object.fromEntries(novo.itens.map((i) => [i.pergunta_id, i.texto])));
+      setEstados({});
+      setResumoIA(resumo);
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Falha ao analisar com IA.");
+    } finally {
+      setAnalisando(false);
+    }
+  }
 
   function aoDigitar(perguntaId: number, texto: string) {
     setRascunhos((r) => ({ ...r, [perguntaId]: texto }));
@@ -129,7 +156,65 @@ export function PaginaPerguntas() {
             </a>
           )}
         </div>
+
+        <div className="barra-ia">
+          <button
+            className="primario"
+            onClick={analisarComIA}
+            disabled={
+              analisando ||
+              !artigo.baixado ||
+              painel.itens.length === 0 ||
+              config?.analise_pronta === false
+            }
+            title={
+              !artigo.baixado
+                ? "Precisa do PDF: baixe ou anexe o arquivo antes"
+                : painel.itens.length === 0
+                  ? "Cadastre ao menos uma pergunta de pesquisa"
+                  : config?.analise_pronta === false
+                    ? config.analise_aviso
+                    : "Lê o PDF e responde as perguntas de pesquisa"
+            }
+          >
+            {analisando ? (
+              <>
+                <span className="girando" />
+                Analisando o PDF…
+              </>
+            ) : (
+              "Analisar com IA"
+            )}
+          </button>
+          <span className="meta">
+            {analisando
+              ? "Lendo o PDF inteiro. Pode levar alguns minutos em artigos longos."
+              : "A resposta da IA é acrescentada abaixo do que você escreveu, marcada com “I.A:”. Nada é substituído."}
+            {!analisando && config?.modo_analise === "claude_code" && (
+              <> Usa o Claude Code com a sua assinatura, sem custo por token.</>
+            )}
+          </span>
+        </div>
       </div>
+
+      {resumoIA && (
+        <div className="aviso sucesso">
+          Análise concluída: {resumoIA.perguntas_respondidas} perguntas respondidas
+          {resumoIA.nao_encontrados > 0 &&
+            `, ${resumoIA.nao_encontrados} sem resposta no artigo`}
+          . Modelo {resumoIA.modelo} ·{" "}
+          {(resumoIA.tokens_entrada + resumoIA.tokens_saida).toLocaleString("pt-BR")}{" "}
+          tokens · US$ {resumoIA.custo_estimado_usd.toFixed(3)}.{" "}
+          <strong>Revise cada resposta antes de usar na dissertação.</strong>
+        </div>
+      )}
+
+      {config && !config.analise_pronta && (
+        <div className="aviso atencao">
+          <strong>Analisar com IA ainda não está disponível.</strong>
+          <pre className="aviso-passos">{config.analise_aviso}</pre>
+        </div>
+      )}
 
       {erro && <div className="aviso erro">{erro}</div>}
 

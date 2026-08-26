@@ -18,7 +18,7 @@ from ..esquemas import (
     ResumoRemocao,
 )
 from ..modelos import Artigo, Busca, Resposta
-from ..servicos import download
+from ..servicos import analise_claude_code, download
 from ..servicos.busca import BuscaError, executar_busca
 
 LOG = logging.getLogger(__name__)
@@ -74,12 +74,31 @@ def _com_contadores(sessao: Session, buscas: list[Busca]) -> list[BuscaResposta]
 @roteador.get("/configuracao", response_model=ConfiguracaoResposta)
 def obter_configuracao() -> ConfiguracaoResposta:
     ok, aviso = config.credenciais_ok()
+    pronta, analise_aviso = _analise_pronta()
     return ConfiguracaoResposta(
         query_padrao=config.SCOPUS_QUERY_PADRAO,
         credenciais_ok=ok,
         aviso=aviso,
         view_scopus=config.SCOPUS_VIEW,
+        modo_analise=config.MODO_ANALISE,
+        analise_pronta=pronta,
+        analise_aviso=analise_aviso,
     )
+
+
+def _analise_pronta() -> tuple[bool, str]:
+    """Checa o pre-requisito do modo escolhido, para a tela avisar antes do
+    clique em vez de so no erro."""
+    if config.MODO_ANALISE == "claude_code":
+        if analise_claude_code.localizar_cli(config.CLAUDE_CLI) is None:
+            return False, analise_claude_code.INSTRUCAO_INSTALACAO
+        return True, ""
+    if not config.ANTHROPIC_API_KEY:
+        return False, (
+            "MODO_ANALISE=api exige ANTHROPIC_API_KEY no .env. Para usar sua "
+            "assinatura em vez da API, deixe MODO_ANALISE=claude_code."
+        )
+    return True, ""
 
 
 @roteador.post("/buscas", response_model=BuscaResposta, status_code=status.HTTP_201_CREATED)

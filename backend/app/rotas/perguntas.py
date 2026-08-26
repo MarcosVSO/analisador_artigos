@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..banco import obter_sessao
 from ..esquemas import (
     ArtigoResposta,
@@ -14,9 +15,12 @@ from ..esquemas import (
     PedidoPergunta,
     PedidoResposta,
     PerguntaResposta,
+    RespostaAnalise,
     RespostaItem,
+    ResumoAnalise,
 )
 from ..modelos import Artigo, Pergunta, Resposta
+from ..servicos import analise_ia
 
 roteador = APIRouter(prefix="/api", tags=["perguntas"])
 
@@ -130,6 +134,74 @@ def obter_respostas(
         artigo=ArtigoResposta.model_validate(artigo),
         itens=itens,
         respondidas=sum(1 for i in itens if i.texto.strip()),
+    )
+
+
+@roteador.post("/artigos/{artigo_id}/analisar", response_model=RespostaAnalise)
+def analisar_com_ia(
+    artigo_id: int, sessao: Session = Depends(obter_sessao)
+) -> RespostaAnalise:
+    """Manda o PDF e as perguntas para o Claude e grava o que ele responder.
+
+    Nunca sobrescreve: o texto da IA e acrescentado abaixo do que ja existia,
+    marcado com "I.A:".
+    """
+    artigo = sessao.get(Artigo, artigo_id)
+    if artigo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Artigo nao encontrado.")
+    if not artigo.baixado or not artigo.pdf_caminho:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Este artigo ainda nao tem PDF. Baixe ou anexe o arquivo antes de analisar.",
+        )
+
+    perguntas = list(
+        sessao.scalars(
+            select(Pergunta)
+            .where(Pergunta.ativa.is_(True))
+            .order_by(Pergunta.ordem, Pergunta.id)
+        )
+    )
+
+    try:
+        resultado = analise_ia.analisar(
+            artigo={
+                "titulo": artigo.titulo,
+                "ano": artigo.ano,
+                "venue": artigo.venue,
+                "doi": artigo.doi,
+            },
+            perguntas=[{"id": p.id, "texto": p.texto} for p in perguntas],
+            caminho_pdf=config.RAIZ / artigo.pdf_caminho,
+        )
+    except analise_ia.AnaliseError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    existentes = {
+        r.pergunta_id: r
+        for r in sessao.scalars(select(Resposta).where(Resposta.artigo_id == artigo_id))
+    }
+
+    for ia in resultado.respostas:
+        resposta = existentes.get(ia.pergunta_id)
+        if resposta is None:
+            resposta = Resposta(artigo_id=artigo_id, pergunta_id=ia.pergunta_id, texto="")
+            sessao.add(resposta)
+        resposta.texto = analise_ia.compor_texto(resposta.texto or "", ia)
+    sessao.commit()
+
+    return RespostaAnalise(
+        painel=obter_respostas(artigo_id, sessao),
+        resumo=ResumoAnalise(
+            perguntas_respondidas=len(resultado.respostas),
+            nao_encontrados=sum(
+                1 for r in resultado.respostas if r.confianca == "nao_encontrado"
+            ),
+            modelo=resultado.modelo,
+            tokens_entrada=resultado.tokens_entrada,
+            tokens_saida=resultado.tokens_saida,
+            custo_estimado_usd=round(resultado.custo_estimado, 4),
+        ),
     )
 
 

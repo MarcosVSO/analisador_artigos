@@ -8,6 +8,7 @@ import type {
   PainelRespostas,
   Pergunta,
   Progresso,
+  RespostaAnalise,
   RespostaItem,
   ResumoRemocao,
 } from "./tipos";
@@ -147,6 +148,11 @@ export const api = {
   // --- respostas por artigo ---
   obterRespostas: (artigoId: number) =>
     pedir<PainelRespostas>(`/api/artigos/${artigoId}/respostas`),
+
+  /** Analisa o PDF com o Claude. A resposta da IA e ACRESCENTADA ao que ja
+   *  estiver escrito, nunca substitui. Demora ~1 min. */
+  analisarComIA: (artigoId: number) =>
+    pedir<RespostaAnalise>(`/api/artigos/${artigoId}/analisar`, { method: "POST" }),
 
   salvarResposta: (artigoId: number, perguntaId: number, texto: string) =>
     pedir<RespostaItem>(`/api/artigos/${artigoId}/respostas/${perguntaId}`, {

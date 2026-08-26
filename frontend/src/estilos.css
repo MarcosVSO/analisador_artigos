@@ -693,3 +693,34 @@ label.botao-icone.anexar {
 .botao-compacto.perigo:hover:not(:disabled) {
   border-color: var(--erro-texto);
 }
+
+/* --- barra de analise por IA --- */
+.barra-ia {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda);
+}
+
+.barra-ia .meta {
+  flex: 1 1 260px;
+}
+
+.aviso.sucesso {
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
+}
+
+.aviso-passos {
+  margin: 8px 0 0;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 10px 12px;
+  border-radius: 6px;
+}

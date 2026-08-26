@@ -27,6 +27,7 @@ backend/                  API FastAPI + SQLite
       scopus.py           cliente da Scopus Search API
       openalex.py         enriquecimento de abstract e keywords
       resolvedor_pdf.py   cadeia de resolução de full-text
+      analise_ia.py       análise do PDF pelo Claude
       busca.py            orquestra Scopus → arquivo bruto → OpenAlex → banco
       download.py         download em background com pool de threads
   ferramentas/
@@ -189,6 +190,84 @@ respostas são gravadas sozinhas cerca de 1 s depois que você para de digitar.
 Apagar uma pergunta apaga junto as respostas dela em **todos** os artigos — a
 confirmação avisa. Para tirar uma pergunta de circulação sem perder o que já
 foi escrito, use `PATCH /api/perguntas/<id> {"ativa": false}`.
+
+### Analisar com IA
+
+O botão **Analisar com IA**, na tela de perguntas do artigo, manda o PDF e as
+perguntas ativas para o Claude numa única chamada e grava as respostas.
+
+**Nada é substituído.** O texto da IA entra abaixo do que você já escreveu,
+sempre marcado com `I.A:`:
+
+```
+Minha leitura: o setup não fica claro na seção 4.
+
+I.A: Sim, os experimentos usam um Meta Quest 2.
+Evidência: "participants wore a Meta Quest 2 headset" (p. 7)
+```
+
+Rodar de novo acrescenta outro bloco `I.A:` — não sobrescreve o anterior.
+
+Quando o artigo não trata do que a pergunta pede, o modelo é instruído a dizer
+isso e marcar confiança `nao_encontrado`, em vez de arriscar um palpite
+plausível. Um "não aborda" correto é o que aponta lacuna na literatura; um
+palpite contamina a matriz de síntese.
+
+A saída vem por *tool use* com `strict: true`, não por texto livre — parsear
+texto para casar resposta com pergunta poria a resposta da pergunta 3 no campo
+da 5, erro que passa despercebido.
+
+#### Dois modos, escolhidos por `MODO_ANALISE` no `.env`
+
+| Modo | Como funciona | Custo | Requisito |
+|---|---|---|---|
+| `claude_code` (padrão) | Invoca a CLI do Claude Code em modo headless, com o **seu login** | já incluso na assinatura | CLI instalada e logada |
+| `api` | Chama a Anthropic API direto | ~US$ 0,15/artigo | `ANTHROPIC_API_KEY` |
+
+Para o modo padrão, uma vez só:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Depois rode `claude` uma vez num terminal para fazer login com sua conta.
+
+O modo `api` existe para processar o acervo em lote sem ninguém na frente —
+é a única das duas rotas que roda desacompanhada.
+
+**Por que sem `--bare`:** o modo bare acelera a partida da CLI, mas
+[não lê as credenciais OAuth](https://code.claude.com/docs/en/headless) —
+exigiria `ANTHROPIC_API_KEY` e derrubaria o motivo de usar a assinatura. O
+preço é uma partida mais lenta.
+
+**Por que `--allowedTools "Read"` e `--permission-mode dontAsk`:** em `-p` a
+sessão começa no modo Manual. Sem liberar Read explicitamente, a leitura do PDF
+pararia num pedido de permissão que ninguém vai responder, e o processo ficaria
+pendurado até o timeout.
+
+**Por que o prompt vai por STDIN, não em `-p "<prompt>"`:** no Windows a CLI é
+um `claude.CMD`, e o `cmd.exe` **trunca um argumento na primeira quebra de
+linha**. Com o prompt em argv, a sessão recebia só a primeira linha, ignorava o
+PDF e as perguntas, e respondia conversando. Pelo stdin o texto chega inteiro.
+
+**Por que `--disallowedTools` e `--strict-mcp-config`:** as definições das
+ferramentas que a análise não usa custavam 13k tokens de entrada por invocação
+(42k → 29k, medido). Ignorar os servidores MCP do ambiente torna o resultado
+independente do que está configurado na máquina.
+
+#### Medido numa execução real
+
+Um artigo de 1,1 MB, 8 perguntas: **27 segundos**, ~91k tokens de entrada,
+US$ 0,27 de custo estimado. O grosso da entrada é o contexto que o Claude Code
+carrega por invocação — o preço de usar a assinatura em vez da API. Numa conta
+Pro esse valor não é cobrado, mas consome da sua franquia de uso.
+
+Requisitos comuns aos dois modos: o PDF baixado ou anexado e ao menos uma
+pergunta cadastrada. O botão fica desabilitado dizendo o que falta, e a tela
+mostra o passo a passo quando o pré-requisito do modo não está atendido.
+
+> A IA sugere; ela não decide. Revise cada resposta antes de levar para a
+> dissertação — é o que a banca vai cobrar.
 
 ---
 

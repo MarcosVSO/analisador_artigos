@@ -131,6 +131,22 @@ class PainelRespostas(BaseModel):
     respondidas: int
 
 
+class ResumoAnalise(BaseModel):
+    """O que a analise por IA produziu e quanto custou."""
+
+    perguntas_respondidas: int
+    nao_encontrados: int
+    modelo: str
+    tokens_entrada: int
+    tokens_saida: int
+    custo_estimado_usd: float
+
+
+class RespostaAnalise(BaseModel):
+    painel: PainelRespostas
+    resumo: ResumoAnalise
+
+
 class ConfiguracaoResposta(BaseModel):
     """O frontend usa isso para pre-preencher o campo e avisar se falta chave."""
 
@@ -138,3 +154,6 @@ class ConfiguracaoResposta(BaseModel):
     credenciais_ok: bool
     aviso: str
     view_scopus: str
+    modo_analise: str
+    analise_pronta: bool
+    analise_aviso: str
