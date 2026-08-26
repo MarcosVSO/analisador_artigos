@@ -1,2 +1,142 @@
-# analisador_artigos
-Analisador de artigos
+# Analisador de Artigos
+
+Sistema de apoio a revisão bibliográfica: busca no Scopus, download automático
+dos PDFs em acesso aberto e catalogação dos artigos encontrados.
+
+As etapas seguintes (análise por IA respondendo perguntas de pesquisa, dashboard
+e detecção de lacunas) entram sobre esta base.
+
+---
+
+## Estrutura
+
+```
+backend/                  API FastAPI + SQLite
+  app/
+    config.py             caminhos e variáveis de ambiente
+    banco.py              engine e sessão do SQLite
+    modelos.py            tabelas: buscas, artigos
+    esquemas.py           contratos de entrada/saída da API
+    main.py               aplicação FastAPI
+    rotas/
+      buscas.py           executar busca, progresso, disparar download
+      artigos.py          listagem filtrada e abertura do PDF
+    servicos/
+      scopus.py           cliente da Scopus Search API
+      openalex.py         enriquecimento de abstract e keywords
+      resolvedor_pdf.py   cadeia de resolução de full-text
+      busca.py            orquestra Scopus → arquivo bruto → OpenAlex → banco
+      download.py         download em background com pool de threads
+  ferramentas/
+    diagnostico_viabilidade.py   diagnóstico da API (ver ferramentas/README.md)
+
+frontend/                 React + Vite + TypeScript
+  src/
+    App.tsx               tela principal
+    api.ts                cliente HTTP
+    tipos.ts              tipos compartilhados
+    componentes/          formulário, painel de progresso, tabela
+
+dados/                    gerado em execução, fora do git
+  pdfs/                   PDFs baixados
+  respostas_scopus/       resposta bruta de cada busca, em JSON
+  analisador.db           banco SQLite
+```
+
+---
+
+## Configuração
+
+```bash
+cp .env.example .env
+```
+
+Preencha no `.env`:
+
+| Variável | Onde conseguir | Obrigatória |
+|---|---|---|
+| `SCOPUS_API_KEY` | [dev.elsevier.com/apikey/manage](https://dev.elsevier.com/apikey/manage), login institucional | sim |
+| `CONTACT_EMAIL` | um e-mail seu real; o Unpaywall exige | sim, na prática |
+| `SCOPUS_QUERY` | sua string de busca padrão (pré-preenche o campo no frontend) | não |
+| `SCOPUS_INSTTOKEN` | suporte da Elsevier — só fora da rede da universidade | não |
+
+O `.env` está no `.gitignore`. Não coloque credencial em nenhum outro arquivo.
+
+---
+
+## Como rodar
+
+Backend (porta 8000):
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+```bash
+python -m uvicorn app.main:app --reload --port 8000 --app-dir backend
+```
+
+Frontend (porta 5173), em outro terminal:
+
+```bash
+npm install --prefix frontend && npm run dev --prefix frontend
+```
+
+Abra <http://localhost:5173>. O Vite faz proxy de `/api` para o backend, então
+não há CORS no caminho. A documentação interativa da API fica em
+<http://localhost:8000/docs>.
+
+---
+
+## Fluxo
+
+1. Você digita a string de busca no frontend e clica em **Buscar no Scopus**.
+2. O backend pagina a Scopus, grava a **resposta bruta** em
+   `dados/respostas_scopus/busca_<carimbo>.json` e persiste os artigos.
+3. O OpenAlex preenche abstract e keywords por DOI (ver nota abaixo).
+4. O download dos PDFs começa sozinho, em background. A tela atualiza a barra
+   de progresso enquanto roda e para de consultar quando termina.
+5. Artigos com PDF ganham o botão **Abrir PDF**, servido pelo backend inline.
+
+---
+
+## Situações do PDF
+
+Cada artigo tem uma flag `baixado` e um estado mais detalhado:
+
+| Estado | O que significa |
+|---|---|
+| `baixado` | PDF salvo em `dados/pdfs/`, validado pelos *magic bytes* |
+| `paywall` | Nenhuma versão aberta encontrada — precisa de upload manual |
+| `landing` | Há versão aberta, mas só a página do artigo, sem link direto de PDF |
+| `erro` | O link prometia PDF e o download falhou (WAF da editora, geralmente) |
+| `pendente` | Ainda não foi tentado |
+
+Na listagem, `paywall` e `landing` aparecem juntos como paywall — do ponto de
+vista de quem vai ler, o efeito é o mesmo: o PDF não veio sozinho.
+
+A distinção entre `landing` e `baixado` não é cosmética. O diagnóstico inicial
+media 47% de resolução porque contava página de artigo como PDF; a taxa real
+de arquivo em disco é ~20%. Nenhum resolvedor tenta contornar paywall.
+
+---
+
+## Nota sobre a chave do Scopus
+
+O diagnóstico (`backend/ferramentas/diagnostico_viabilidade.py`) mostrou que
+esta chave **não tem direito a `view=COMPLETE`** — a Scopus responde 401 com
+*"not authorized to access the requested view"*. Na prática a busca volta com
+0% de abstract e 0% de keywords.
+
+Por isso a busca roda em `STANDARD` e o **OpenAlex** preenche abstract e
+keywords por DOI: é gratuito, não exige chave, não consome quota e ainda traz
+conceitos que a `view=COMPLETE` não traria. Se um dia a assinatura liberar
+`COMPLETE`, basta definir `SCOPUS_VIEW=COMPLETE` no `.env`.
+
+---
+
+## Quota
+
+A Scopus dá cerca de 20.000 requisições semanais na Search API. Cada busca
+consome uma requisição a cada 100 artigos recuperados. OpenAlex, Unpaywall e
+arXiv são gratuitos e não contam nessa quota.

@@ -7,13 +7,13 @@ Responde as duas perguntas que decidem a arquitetura do resto do sistema:
      automaticamente, sem intervencao manual?
 
 Nao grava nada no banco e nao faz parte do sistema final - e um diagnostico.
-O resultado bruto vai para etapa0/resultado.json.
+O resultado bruto vai para dados/diagnostico_viabilidade.json.
 
 Uso:
-    python etapa0/validar.py
-    python etapa0/validar.py --amostra 25
-    python etapa0/validar.py --query 'TITLE-ABS-KEY("foo") AND PUBYEAR > 2020'
-    python etapa0/validar.py --sem-download    # nao baixa PDF de verdade
+    python backend/ferramentas/diagnostico_viabilidade.py
+    python backend/ferramentas/diagnostico_viabilidade.py --amostra 25
+    python backend/ferramentas/diagnostico_viabilidade.py --query 'TITLE-ABS-KEY("foo") AND PUBYEAR > 2020'
+    python backend/ferramentas/diagnostico_viabilidade.py --sem-download    # nao baixa PDF de verdade
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ for fluxo in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app" / "servicos"))
 
 from dotenv import load_dotenv  # noqa: E402
 
@@ -49,8 +49,8 @@ from scopus import (  # noqa: E402
     extrair_campos,
 )
 
-RAIZ = Path(__file__).resolve().parent.parent
-SAIDA_JSON = RAIZ / "etapa0" / "resultado.json"
+RAIZ = Path(__file__).resolve().parents[2]
+SAIDA_JSON = RAIZ / "dados" / "diagnostico_viabilidade.json"
 
 OK = "[ OK  ]"
 AVISO = "[AVISO]"

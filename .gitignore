@@ -1,7 +1,16 @@
+# Credenciais
 .env
+
+# Dados gerados: banco, PDFs baixados e respostas brutas do Scopus
+dados/
+
+# Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-etapa0/resultado.json
-storage/
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
