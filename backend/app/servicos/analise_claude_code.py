@@ -19,10 +19,24 @@ import json
 import logging
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
+from .. import config
+
 LOG = logging.getLogger(__name__)
+
+RAIZ = config.RAIZ
+
+# Diretorio de trabalho das sessoes headless, FORA do projeto.
+#
+# Rodando na raiz do projeto, a sessao carrega a auto-memoria daquele caminho.
+# Medido aqui: as notas de roadmap do assistente entravam no contexto e
+# apareciam na resposta da sintese ("as proximas etapas do roadmap 4-9"),
+# misturando anotacoes de desenvolvimento com a revisao bibliografica do
+# usuario. De um diretorio neutro nada disso e carregado.
+PASTA_SESSAO = Path(tempfile.gettempdir()) / "analisador_artigos_sessao"
 
 # Tudo o que uma leitura de PDF nao precisa. Cada definicao de ferramenta
 # entra no contexto de toda invocacao, entao podar aqui e economia direta.
@@ -99,16 +113,20 @@ def _prompt(artigo: dict[str, Any], perguntas: list[dict[str, Any]], pdf: Path) 
     return "\n".join(linhas)
 
 
-def analisar(
-    artigo: dict[str, Any],
-    perguntas: list[dict[str, Any]],
-    caminho_pdf: Path,
-    esquema: dict[str, Any],
+def rodar(
+    prompt: str,
     cli: str,
     timeout_s: int,
+    esquema: dict[str, Any] | None = None,
     modelo: str = "",
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Roda a CLI e devolve (respostas, metadados).
+    ferramentas: tuple[str, ...] = (),
+    diretorios: tuple[Path, ...] = (),
+) -> tuple[str, dict[str, Any] | None, dict[str, Any]]:
+    """Executa um prompt na CLI e devolve (texto, estruturado, metadados).
+
+    `esquema` liga a saida estruturada (`--json-schema`); sem ele volta so o
+    texto. `ferramentas` lista o que a sessao pode usar - vazio significa que
+    tudo o que ela precisa ja esta no prompt, e ai nem o Read e liberado.
 
     `metadados` traz custo estimado e uso, que a CLI reporta por invocacao.
     """
@@ -124,11 +142,6 @@ def analisar(
         "-p",
         "--output-format",
         "json",
-        "--json-schema",
-        json.dumps(esquema),
-        # Ler o PDF e a unica coisa que ela precisa fazer.
-        "--allowedTools",
-        "Read",
         # Nega o que nao estiver liberado em vez de perguntar - numa sessao
         # sem terminal, um prompt de permissao trava ate o timeout.
         "--permission-mode",
@@ -145,22 +158,29 @@ def analisar(
         "--mcp-config",
         '{"mcpServers":{}}',
     ]
+    if esquema is not None:
+        comando += ["--json-schema", json.dumps(esquema)]
+    if ferramentas:
+        comando += ["--allowedTools", ",".join(ferramentas)]
+    # Como a sessao roda fora do projeto, o que ela precisa ler tem que ser
+    # liberado explicitamente.
+    for diretorio in diretorios:
+        comando += ["--add-dir", str(diretorio)]
     if modelo:
         comando += ["--model", modelo]
 
-    LOG.info("Invocando Claude Code para o artigo %s", artigo.get("titulo", "")[:60])
+    PASTA_SESSAO.mkdir(parents=True, exist_ok=True)
+    LOG.info("Invocando Claude Code (%s chars de prompt)", len(prompt))
     try:
         processo = subprocess.run(
             comando,
-            input=_prompt(artigo, perguntas, caminho_pdf),
+            input=prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             timeout=timeout_s,
-            # A analise le um PDF do disco; rodar na raiz do projeto mantem o
-            # caminho do arquivo dentro do diretorio de trabalho da sessao.
-            cwd=str(caminho_pdf.parent.parent.parent),
+            cwd=str(PASTA_SESSAO),
         )
     except FileNotFoundError as exc:
         raise RuntimeError(INSTRUCAO_INSTALACAO) from exc
@@ -193,7 +213,7 @@ def analisar(
         )
 
     estruturado = payload.get("structured_output")
-    if not isinstance(estruturado, dict) or "respostas" not in estruturado:
+    if esquema is not None and not isinstance(estruturado, dict):
         raise RuntimeError(
             "A CLI nao devolveu a saida estruturada esperada. "
             f"Resultado em texto: {str(payload.get('result'))[:200]}"
@@ -213,4 +233,29 @@ def analisar(
         "tokens_saida": int(uso.get("output_tokens") or 0),
         "sessao": payload.get("session_id"),
     }
+    return str(payload.get("result") or ""), estruturado, metadados
+
+
+def analisar(
+    artigo: dict[str, Any],
+    perguntas: list[dict[str, Any]],
+    caminho_pdf: Path,
+    esquema: dict[str, Any],
+    cli: str,
+    timeout_s: int,
+    modelo: str = "",
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Le o PDF e responde as perguntas de pesquisa daquele artigo."""
+    _texto, estruturado, metadados = rodar(
+        prompt=_prompt(artigo, perguntas, caminho_pdf),
+        cli=cli,
+        timeout_s=timeout_s,
+        esquema=esquema,
+        modelo=modelo,
+        # Ler o PDF e a unica coisa que ela precisa fazer.
+        ferramentas=("Read",),
+        diretorios=(caminho_pdf.parent,),
+    )
+    if not estruturado or "respostas" not in estruturado:
+        raise RuntimeError("A CLI nao devolveu a lista de respostas esperada.")
     return estruturado["respostas"], metadados

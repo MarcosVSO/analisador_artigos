@@ -724,3 +724,69 @@ label.botao-icone.anexar {
   padding: 10px 12px;
   border-radius: 6px;
 }
+
+/* --- pagina de sintese --- */
+.pagina-larga {
+  max-width: 1600px;
+}
+
+table.matriz {
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+table.matriz th {
+  vertical-align: bottom;
+  white-space: normal;
+  min-width: 190px;
+  max-width: 240px;
+  line-height: 1.35;
+  /* A regra global de `th` poe uppercase, boa para rotulos curtos como "ANO".
+     Aqui o cabecalho e a pergunta de pesquisa inteira, e em caixa alta ela
+     fica ilegivel. */
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+table.matriz td {
+  font-size: 12.5px;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+/* A primeira coluna gruda: sem isso, rolar para a 8a pergunta faz perder de
+   vista de qual artigo e a linha. */
+table.matriz .coluna-fixa {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--superficie);
+  min-width: 240px;
+  max-width: 280px;
+  box-shadow: 1px 0 0 var(--borda);
+}
+
+table.matriz tbody tr:hover .coluna-fixa {
+  background: var(--fundo);
+}
+
+.celula-matriz {
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  padding-right: 4px;
+}
+
+.consulta .pergunta-feita {
+  font-weight: 600;
+  line-height: 1.5;
+  max-width: 900px;
+}
+
+.resposta-sintese {
+  margin-top: 12px;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  max-width: 900px;
+}

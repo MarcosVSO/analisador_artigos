@@ -121,3 +121,40 @@ export interface Configuracao {
   analise_aviso: string;
 }
 
+
+// --- Síntese ---------------------------------------------------------------
+
+export interface PerguntaMatriz {
+  id: number;
+  texto: string;
+  ordem: number;
+}
+
+export interface LinhaMatriz {
+  artigo_id: number;
+  titulo: string;
+  autores: string[];
+  ano: number | null;
+  venue: string | null;
+  doi: string | null;
+  analisado: boolean;
+  /** pergunta_id -> texto da resposta */
+  respostas: Record<number, string>;
+}
+
+export interface MatrizSintese {
+  perguntas: PerguntaMatriz[];
+  artigos: LinhaMatriz[];
+  total: number;
+}
+
+export interface ConsultaSintese {
+  id: number;
+  busca_id: number | null;
+  pergunta: string;
+  resposta: string;
+  artigos_considerados: number;
+  modelo: string | null;
+  custo_usd: number | null;
+  criado_em: string;
+}

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Link } from "react-router-dom";
+
 import { api, ErroApi } from "../api";
 import { DrawerPerguntas } from "../componentes/DrawerPerguntas";
 import { FiltrosArtigos } from "../componentes/FiltrosArtigos";
@@ -253,9 +255,14 @@ ${alvo.query}
               para a revisão bibliográfica.
             </p>
           </div>
-          <button onClick={() => setDrawerAberto(true)}>
-            Perguntas de pesquisa{totalPerguntas ? ` (${totalPerguntas})` : ""}
-          </button>
+          <div className="painel-acoes">
+            <Link className="botao-compacto" to="/sintese">
+              Síntese da revisão
+            </Link>
+            <button onClick={() => setDrawerAberto(true)}>
+              Perguntas de pesquisa{totalPerguntas ? ` (${totalPerguntas})` : ""}
+            </button>
+          </div>
         </div>
       </header>
 

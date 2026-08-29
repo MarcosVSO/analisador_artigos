@@ -13,6 +13,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -171,3 +172,26 @@ class Resposta(Base):
 
     artigo: Mapped[Artigo] = relationship(back_populates="respostas")
     pergunta: Mapped[Pergunta] = relationship(back_populates="respostas")
+
+
+class Consulta(Base):
+    """Uma pergunta feita sobre o conjunto das analises, e a resposta.
+
+    Guardada porque o objetivo dela e escrever um projeto de pesquisa: a
+    resposta e material de trabalho, nao um resultado descartavel de tela.
+    """
+
+    __tablename__ = "consultas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Nula = perguntou sobre o corpus inteiro, nao sobre uma linha de pesquisa.
+    busca_id: Mapped[int | None] = mapped_column(
+        ForeignKey("buscas.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    pergunta: Mapped[str] = mapped_column(Text)
+    resposta: Mapped[str] = mapped_column(Text)
+    # Quantos artigos entraram no contexto - a resposta so vale para eles.
+    artigos_considerados: Mapped[int] = mapped_column(Integer, default=0)
+    modelo: Mapped[str | None] = mapped_column(String(60))
+    custo_usd: Mapped[float | None] = mapped_column(Float)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora, index=True)

@@ -163,3 +163,49 @@ class ConfiguracaoResposta(BaseModel):
     modo_analise: str
     analise_pronta: bool
     analise_aviso: str
+
+
+# --- Sintese --------------------------------------------------------------
+
+
+class PerguntaMatriz(BaseModel):
+    id: int
+    texto: str
+    ordem: int
+
+
+class LinhaMatriz(BaseModel):
+    artigo_id: int
+    titulo: str
+    autores: list[str] = []
+    ano: int | None
+    venue: str | None
+    doi: str | None
+    analisado: bool
+    # pergunta_id -> texto da resposta.
+    respostas: dict[int, str]
+
+
+class MatrizSintese(BaseModel):
+    perguntas: list[PerguntaMatriz]
+    artigos: list[LinhaMatriz]
+    total: int
+
+
+class PedidoConsulta(BaseModel):
+    pergunta: str = Field(min_length=5, max_length=4000)
+    busca_id: int | None = None
+    somente_analisados: bool = True
+
+
+class ConsultaResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    busca_id: int | None
+    pergunta: str
+    resposta: str
+    artigos_considerados: int
+    modelo: str | None
+    custo_usd: float | None
+    criado_em: datetime

@@ -7,6 +7,8 @@ import type {
   PaginaArtigos,
   PainelRespostas,
   Pergunta,
+  ConsultaSintese,
+  MatrizSintese,
   Progresso,
   RespostaAnalise,
   RespostaItem,
@@ -156,11 +158,55 @@ export const api = {
   analisarComIA: (artigoId: number) =>
     pedir<RespostaAnalise>(`/api/artigos/${artigoId}/analisar`, { method: "POST" }),
 
+  // --- sintese ---
+  matriz: (buscaId: number | null, somenteAnalisados: boolean) => {
+    const params = new URLSearchParams({
+      somente_analisados: String(somenteAnalisados),
+    });
+    if (buscaId !== null) params.set("busca_id", String(buscaId));
+    return pedir<MatrizSintese>(`/api/sintese?${params}`);
+  },
+
+  listarConsultas: (buscaId: number | null) => {
+    const params = new URLSearchParams();
+    if (buscaId !== null) params.set("busca_id", String(buscaId));
+    return pedir<ConsultaSintese[]>(`/api/sintese/consultas?${params}`);
+  },
+
+  perguntarSintese: (
+    pergunta: string,
+    buscaId: number | null,
+    somenteAnalisados: boolean,
+  ) =>
+    pedir<ConsultaSintese>("/api/sintese/consultas", {
+      method: "POST",
+      body: JSON.stringify({
+        pergunta,
+        busca_id: buscaId,
+        somente_analisados: somenteAnalisados,
+      }),
+    }),
+
+  removerConsulta: (id: number) =>
+    pedir<void>(`/api/sintese/consultas/${id}`, { method: "DELETE" }),
+
   salvarResposta: (artigoId: number, perguntaId: number, texto: string) =>
     pedir<RespostaItem>(`/api/artigos/${artigoId}/respostas/${perguntaId}`, {
       method: "PUT",
       body: JSON.stringify({ texto }),
     }),
+};
+
+/** URL do CSV da matriz. Link direto, para o browser baixar o arquivo. */
+export const urlCsvMatriz = (
+  buscaId: number | null,
+  somenteAnalisados: boolean,
+) => {
+  const params = new URLSearchParams({
+    somente_analisados: String(somenteAnalisados),
+  });
+  if (buscaId !== null) params.set("busca_id", String(buscaId));
+  return `/api/sintese/csv?${params}`;
 };
 
 /** URL do PDF servido pelo backend. `anexo` forca salvar em vez de abrir. */

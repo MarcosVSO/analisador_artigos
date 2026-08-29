@@ -28,7 +28,9 @@ backend/                  API FastAPI + SQLite
       openalex.py         enriquecimento de abstract e keywords
       resolvedor_pdf.py   cadeia de resolução de full-text
       analise_ia.py       análise do PDF pelo Claude
+      analise_claude_code.py  executor headless da CLI
       estado_analise.py   recálculo da flag `analisado`
+      sintese.py          matriz, CSV e consultas sobre o conjunto
       busca.py            orquestra Scopus → arquivo bruto → OpenAlex → banco
       download.py         download em background com pool de threads
   ferramentas/
@@ -48,6 +50,7 @@ frontend/                 React + Vite + TypeScript
     paginas/
       PaginaListagem.tsx  busca, filtros e tabela de artigos
       PaginaPerguntas.tsx respostas de um artigo
+      PaginaSintese.tsx   matriz e consultas sobre o conjunto
     componentes/          formulário, lista de buscas, progresso, tabela,
                           modal, drawer
 
@@ -331,6 +334,38 @@ mostra o passo a passo quando o pré-requisito do modo não está atendido.
 
 > A IA sugere; ela não decide. Revise cada resposta antes de levar para a
 > dissertação — é o que a banca vai cobrar.
+
+---
+
+## Síntese da revisão
+
+A página **Síntese da revisão** (link no topo da listagem, ou `/sintese`) mostra
+os artigos analisados e suas respostas lado a lado — artigos nas linhas,
+perguntas nas colunas, primeira coluna fixa ao rolar.
+
+Dá para filtrar por linha de pesquisa, alternar entre "só analisados" e "todos",
+e **exportar em CSV** (com BOM, para o Excel abrir os acentos certos).
+
+### Perguntar sobre o conjunto
+
+O campo abaixo da matriz manda **a matriz** — não os PDFs — para o Claude, com
+quatro perguntas prontas voltadas a escrever um projeto de pesquisa: lacunas e
+contribuições, panorama das estratégias, rigor experimental, contradições.
+
+O prompt instrui o modelo a citar quais artigos sustentam cada afirmação, a
+distinguir o que a matriz mostra do que ele está inferindo, e a lembrar que
+**uma ausência na matriz pode ser limite do recorte da busca**, não da
+literatura. As consultas ficam salvas: a resposta é material de trabalho, não
+resultado descartável de tela.
+
+O prompt também marca a origem de cada resposta (escrita por você, extraída por
+IA, ou as duas), para o modelo não tratar sugestão de máquina com o mesmo peso
+da sua leitura.
+
+> As sessões headless rodam de um **diretório neutro fora do projeto**. Rodando
+> na raiz, a CLI carrega a auto-memória daquele caminho, e anotações de
+> desenvolvimento entravam no contexto da revisão. Foi medido: uma resposta de
+> síntese chegou a citar o roadmap do próprio sistema.
 
 ---
 
