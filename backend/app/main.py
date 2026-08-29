@@ -7,8 +7,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .banco import criar_tabelas
+from .banco import FabricaSessao, criar_tabelas
 from .rotas import artigos, buscas, perguntas
+from .servicos import estado_analise
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +40,12 @@ app.include_router(perguntas.roteador)
 @app.on_event("startup")
 def ao_iniciar() -> None:
     criar_tabelas()
+    # Rede de seguranca: se algum caminho esquecer de recalcular a flag
+    # `analisado`, a subida do servidor conserta.
+    with FabricaSessao() as sessao:
+        analisados = estado_analise.recalcular_todos(sessao)
+        sessao.commit()
+    logging.getLogger(__name__).info("Artigos analisados: %s", analisados)
 
 
 @app.get("/api/saude")

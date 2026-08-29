@@ -28,10 +28,17 @@ backend/                  API FastAPI + SQLite
       openalex.py         enriquecimento de abstract e keywords
       resolvedor_pdf.py   cadeia de resolução de full-text
       analise_ia.py       análise do PDF pelo Claude
+      estado_analise.py   recálculo da flag `analisado`
       busca.py            orquestra Scopus → arquivo bruto → OpenAlex → banco
       download.py         download em background com pool de threads
   ferramentas/
     diagnostico_viabilidade.py   diagnóstico da API (ver ferramentas/README.md)
+
+scripts/                  lançador e atalho
+  iniciar.py              sobe backend + frontend, abre o navegador
+  Analisador de Artigos.bat   alvo do atalho da Área de Trabalho
+  criar_atalho.ps1        cria/remove o atalho
+  gerar_icone.py          regenera scripts/icone.ico
 
 frontend/                 React + Vite + TypeScript
   src/
@@ -73,25 +80,63 @@ O `.env` está no `.gitignore`. Não coloque credencial em nenhum outro arquivo.
 
 ## Como rodar
 
-Backend (porta 8000):
+### Pelo atalho na Área de Trabalho (recomendado)
+
+Uma vez só, para criar o atalho:
 
 ```bash
-pip install -r backend/requirements.txt
+powershell -ExecutionPolicy Bypass -File scripts\criar_atalho.ps1
 ```
+
+Depois é só clicar em **Analisador de Artigos** na Área de Trabalho. O
+lançador sobe backend e frontend, espera os dois responderem e abre o
+navegador. Fechar a janela desliga tudo.
+
+Clicar de novo com o sistema já no ar apenas reabre a aba, sem tentar subir
+nada. Para remover o atalho: `... criar_atalho.ps1 -Remover`.
+
+Logs de cada servidor ficam em `dados/logs/`.
+
+### Pelo terminal
+
+```bash
+python scripts/iniciar.py
+```
+
+Ou os dois servidores separados, para desenvolvimento:
 
 ```bash
 python -m uvicorn app.main:app --reload --port 8000 --app-dir backend
 ```
 
-Frontend (porta 5173), em outro terminal:
-
 ```bash
-npm install --prefix frontend && npm run dev --prefix frontend
+npm run dev --prefix frontend
 ```
 
-Abra <http://localhost:5173>. O Vite faz proxy de `/api` para o backend, então
-não há CORS no caminho. A documentação interativa da API fica em
-<http://localhost:8000/docs>.
+Instalação das dependências, uma vez:
+
+```bash
+pip install -r backend/requirements.txt && npm install --prefix frontend
+```
+
+O Vite faz proxy de `/api` para o backend, então não há CORS no caminho. A
+documentação interativa da API fica em <http://localhost:8000/docs>.
+
+### Como o lançador desliga os servidores
+
+Fechar a janela no **X** manda `CTRL_CLOSE_EVENT`, e o Windows dá poucos
+segundos antes de encerrar o processo — muitas vezes o `taskkill` do
+encerramento não chega a rodar, e uvicorn e node ficam segurando 8000 e 5173.
+Na vez seguinte o lançador acusaria "porta em uso".
+
+Por isso o lançador se coloca dentro de um **Job Object** com
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`: todo processo que ele criar já nasce
+membro, e quem garante a limpeza passa a ser o sistema operacional. Testado
+matando o lançador à força — as duas portas ficam livres.
+
+> Anexar os *filhos* ao job depois do `Popen` não funciona: é uma corrida, e o
+> `cmd.exe` do backend já tinha criado o uvicorn antes da associação. Anexar o
+> próprio lançador elimina a janela de corrida.
 
 ---
 
@@ -135,8 +180,9 @@ lote terminar.
 
 ### Filtros
 
-Três, combináveis: **título**, **download** (baixados / não baixados) e
-**paywall** (com / sem). Trocar qualquer um volta para a primeira página.
+Quatro, combináveis: **título**, **download** (baixados / não baixados),
+**paywall** (com / sem) e **análise** (analisados / não analisados). Trocar
+qualquer um volta para a primeira página.
 
 ### Ordenação
 
@@ -186,6 +232,23 @@ inclusive os de buscas futuras.
 O botão **Perguntas** de cada linha leva para `/artigos/<id>/perguntas`, onde
 todas as perguntas ativas aparecem com um campo de texto para a resposta. As
 respostas são gravadas sozinhas cerca de 1 s depois que você para de digitar.
+
+### A marca "Analisado"
+
+Um artigo ganha a etiqueta **Analisado** quando **todas** as perguntas ativas
+têm resposta preenchida — venha ela de você ou da IA. Resposta só com espaços
+não conta. A data em que ficou completo fica em `analisado_em`.
+
+A flag é gravada na tabela (para dar filtro e contagem em SQL), mas é
+**derivada**: precisa ser recalculada quando as respostas ou as perguntas
+mudam. Como as perguntas são globais, cadastrar a 9ª faz todo artigo que estava
+completo com 8 voltar a ficar incompleto — e uma flag que não acompanhasse isso
+mentiria justamente ao dizer o que ainda falta ler.
+
+Por isso o recálculo vive num lugar só (`servicos/estado_analise.py`) e é
+chamado ao salvar resposta, ao analisar com IA, e ao criar, arquivar, reativar
+ou apagar uma pergunta. Além disso roda na **subida do servidor**: se algum
+caminho novo esquecer de chamar, o próximo restart conserta.
 
 Apagar uma pergunta apaga junto as respostas dela em **todos** os artigos — a
 confirmação avisa. Para tirar uma pergunta de circulação sem perder o que já

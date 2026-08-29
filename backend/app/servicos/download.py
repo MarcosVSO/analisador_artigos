@@ -230,4 +230,10 @@ def progresso(sessao, busca_id: int) -> dict:
         "erro": por_status.get(StatusPDF.ERRO.value, 0),
         "em_andamento": em_andamento(busca_id),
         "a_baixar": por_status.get(StatusPDF.PENDENTE.value, 0),
+        "analisados": sessao.scalar(
+            select(func.count())
+            .select_from(Artigo)
+            .where(Artigo.busca_id == busca_id, Artigo.analisado.is_(True))
+        )
+        or 0,
     }

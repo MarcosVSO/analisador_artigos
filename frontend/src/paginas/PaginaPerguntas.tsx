@@ -229,6 +229,11 @@ export function PaginaPerguntas() {
             <strong>
               {respondidas} de {painel.itens.length} respondidas
             </strong>
+            {respondidas === painel.itens.length && (
+              <span className="etiqueta ok" style={{ marginLeft: 10 }}>
+                Analisado
+              </span>
+            )}
             <div className="meta">
               As respostas são salvas sozinhas, cerca de 1 s depois que você para
               de digitar.

@@ -47,6 +47,7 @@ def listar_artigos(
     busca_id: int | None = None,
     baixado: bool | None = Query(default=None, description="None = ambos"),
     paywall: bool | None = Query(default=None, description="None = ambos"),
+    analisado: bool | None = Query(default=None, description="None = ambos"),
     texto: str | None = Query(default=None, description="Filtra por titulo"),
     ordenar_por: Ordenacao = "citacoes",
     pagina: int = Query(default=1, ge=1),
@@ -61,6 +62,8 @@ def listar_artigos(
     if paywall is not None:
         condicao = Artigo.pdf_status.in_(STATUS_PAYWALL)
         filtros.append(condicao if paywall else ~condicao)
+    if analisado is not None:
+        filtros.append(Artigo.analisado.is_(analisado))
     if texto:
         filtros.append(Artigo.titulo.ilike(f"%{texto}%"))
 

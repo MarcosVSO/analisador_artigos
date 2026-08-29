@@ -12,6 +12,8 @@ export interface Artigo {
   keywords: string[];
   citacoes: number | null;
   tipo: string | null;
+  analisado: boolean;
+  analisado_em: string | null;
   baixado: boolean;
   pdf_status: StatusPDF;
   pdf_fonte: string | null;
@@ -53,6 +55,7 @@ export interface Progresso {
   erro: number;
   em_andamento: boolean;
   a_baixar: number;
+  analisados: number;
 }
 
 export interface PaginaArtigos {
@@ -68,6 +71,7 @@ export interface Filtros {
   texto: string;
   baixado: boolean | null;
   paywall: boolean | null;
+  analisado: boolean | null;
 }
 
 export type Ordenacao = "citacoes" | "ano_desc" | "ano_asc" | "titulo";
@@ -90,6 +94,7 @@ export interface PainelRespostas {
   artigo: Artigo;
   itens: RespostaItem[];
   respondidas: number;
+  analisado: boolean;
 }
 
 export interface ResumoAnalise {

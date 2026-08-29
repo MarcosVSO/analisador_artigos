@@ -111,6 +111,7 @@ export function PainelProgresso({ busca, progresso, onBaixar }: Props) {
             rotulo="taxa de download"
           />
         )}
+        <Contador valor={progresso?.analisados ?? 0} rotulo="analisados" />
       </div>
     </div>
   );

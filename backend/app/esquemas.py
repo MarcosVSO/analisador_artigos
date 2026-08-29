@@ -61,6 +61,9 @@ class ArtigoResposta(BaseModel):
     citacoes: int | None
     tipo: str | None
 
+    analisado: bool
+    analisado_em: datetime | None
+
     baixado: bool
     pdf_status: str
     pdf_fonte: str | None
@@ -91,6 +94,8 @@ class Progresso(BaseModel):
     em_andamento: bool
     # Quantos o botao "Baixar pendentes" vai processar agora.
     a_baixar: int
+    # Artigos com todas as perguntas ativas respondidas.
+    analisados: int
 
 
 class PedidoPergunta(BaseModel):
@@ -129,6 +134,7 @@ class PainelRespostas(BaseModel):
     artigo: ArtigoResposta
     itens: list[RespostaItem]
     respondidas: int
+    analisado: bool
 
 
 class ResumoAnalise(BaseModel):

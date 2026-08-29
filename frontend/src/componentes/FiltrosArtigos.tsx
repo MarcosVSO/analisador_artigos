@@ -69,6 +69,21 @@ export function FiltrosArtigos({
         </div>
 
         <div>
+          <label htmlFor="filtro-analisado">Análise</label>
+          <select
+            id="filtro-analisado"
+            value={paraTexto(filtros.analisado)}
+            onChange={(e) =>
+              onMudar({ ...filtros, analisado: paraBooleano(e.target.value) })
+            }
+          >
+            <option value="">Todos</option>
+            <option value="sim">Analisados</option>
+            <option value="nao">Não analisados</option>
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="ordenar">Ordenar por</label>
           <select
             id="ordenar"
@@ -84,9 +99,19 @@ export function FiltrosArtigos({
 
         <div>
           <button
-            onClick={() => onMudar({ texto: "", baixado: null, paywall: null })}
+            onClick={() =>
+              onMudar({
+                texto: "",
+                baixado: null,
+                paywall: null,
+                analisado: null,
+              })
+            }
             disabled={
-              !filtros.texto && filtros.baixado === null && filtros.paywall === null
+              !filtros.texto &&
+              filtros.baixado === null &&
+              filtros.paywall === null &&
+              filtros.analisado === null
             }
           >
             Limpar

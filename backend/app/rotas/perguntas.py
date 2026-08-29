@@ -20,7 +20,7 @@ from ..esquemas import (
     ResumoAnalise,
 )
 from ..modelos import Artigo, Pergunta, Resposta
-from ..servicos import analise_ia
+from ..servicos import analise_ia, estado_analise
 
 roteador = APIRouter(prefix="/api", tags=["perguntas"])
 
@@ -45,6 +45,11 @@ def criar_pergunta(
     ultima = sessao.scalar(select(func.max(Pergunta.ordem))) or 0
     pergunta = Pergunta(texto=pedido.texto.strip(), ordem=ultima + 1)
     sessao.add(pergunta)
+    sessao.flush()
+    # Uma pergunta a mais desfaz o "analisado" de quem estava completo com as
+    # anteriores. Sem este recalculo a flag mentiria justamente ao dizer o que
+    # ainda falta ler.
+    estado_analise.recalcular_todos(sessao)
     sessao.commit()
     sessao.refresh(pergunta)
     return pergunta
@@ -65,6 +70,10 @@ def atualizar_pergunta(
         pergunta.ordem = patch.ordem
     if patch.ativa is not None:
         pergunta.ativa = patch.ativa
+    sessao.flush()
+    if patch.ativa is not None:
+        # Arquivar uma pergunta pode completar artigos; reativar pode desfazer.
+        estado_analise.recalcular_todos(sessao)
     sessao.commit()
     sessao.refresh(pergunta)
     return pergunta
@@ -90,6 +99,8 @@ def remover_pergunta(
     if pergunta is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pergunta nao encontrada.")
     sessao.delete(pergunta)
+    sessao.flush()
+    estado_analise.recalcular_todos(sessao)
     sessao.commit()
 
 
@@ -134,6 +145,7 @@ def obter_respostas(
         artigo=ArtigoResposta.model_validate(artigo),
         itens=itens,
         respondidas=sum(1 for i in itens if i.texto.strip()),
+        analisado=bool(artigo.analisado),
     )
 
 
@@ -188,6 +200,8 @@ def analisar_com_ia(
             resposta = Resposta(artigo_id=artigo_id, pergunta_id=ia.pergunta_id, texto="")
             sessao.add(resposta)
         resposta.texto = analise_ia.compor_texto(resposta.texto or "", ia)
+    sessao.flush()
+    estado_analise.recalcular_artigo(sessao, artigo_id)
     sessao.commit()
 
     return RespostaAnalise(
@@ -229,6 +243,8 @@ def salvar_resposta(
         resposta = Resposta(artigo_id=artigo_id, pergunta_id=pergunta_id)
         sessao.add(resposta)
     resposta.texto = pedido.texto
+    sessao.flush()
+    estado_analise.recalcular_artigo(sessao, artigo_id)
     sessao.commit()
 
     return RespostaItem(

@@ -121,6 +121,8 @@ export const api = {
     // Booleano so entra na URL quando o filtro esta ativo; ausente = "ambos".
     if (filtros.baixado !== null) params.set("baixado", String(filtros.baixado));
     if (filtros.paywall !== null) params.set("paywall", String(filtros.paywall));
+    if (filtros.analisado !== null)
+      params.set("analisado", String(filtros.analisado));
     if (filtros.texto.trim()) params.set("texto", filtros.texto.trim());
     return pedir<PaginaArtigos>(`/api/artigos?${params}`);
   },

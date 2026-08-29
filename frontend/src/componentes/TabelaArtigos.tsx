@@ -104,6 +104,7 @@ export function TabelaArtigos({
               <th>Ano</th>
               <th className="num">Cit.</th>
               <th>PDF</th>
+              <th>Análise</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -145,6 +146,18 @@ export function TabelaArtigos({
                         {formatarTamanho(artigo.pdf_bytes)}
                         {artigo.pdf_fonte && ` · ${artigo.pdf_fonte}`}
                       </div>
+                    )}
+                  </td>
+                  <td>
+                    {artigo.analisado ? (
+                      <span
+                        className="etiqueta ok"
+                        title="Todas as perguntas de pesquisa foram respondidas"
+                      >
+                        Analisado
+                      </span>
+                    ) : (
+                      <span className="meta">—</span>
                     )}
                   </td>
                   <td>

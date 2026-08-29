@@ -101,6 +101,14 @@ class Artigo(Base):
     pdf_bytes: Mapped[int | None] = mapped_column(Integer)
     pdf_detalhe: Mapped[str | None] = mapped_column(Text)
 
+    # --- Extracao das perguntas de pesquisa ------------------------------
+    # Derivado, nao digitado: vira True quando TODAS as perguntas ativas tem
+    # resposta preenchida. Fica gravado (em vez de calculado na leitura) para
+    # dar filtro e ordenacao em SQL sem subconsulta por linha - o preco e ter
+    # que recalcular quando as respostas ou as perguntas mudam.
+    analisado: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    analisado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
 
     busca: Mapped[Busca] = relationship(back_populates="artigos")

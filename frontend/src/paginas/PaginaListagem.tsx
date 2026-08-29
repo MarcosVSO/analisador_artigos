@@ -19,7 +19,12 @@ import type {
 } from "../tipos";
 
 const INTERVALO_POLL_MS = 3000;
-const FILTROS_VAZIOS: Filtros = { texto: "", baixado: null, paywall: null };
+const FILTROS_VAZIOS: Filtros = {
+  texto: "",
+  baixado: null,
+  paywall: null,
+  analisado: null,
+};
 
 export function PaginaListagem() {
   const [config, setConfig] = useState<Configuracao | null>(null);
