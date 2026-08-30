@@ -52,7 +52,7 @@ frontend/                 React + Vite + TypeScript
       PaginaPerguntas.tsx respostas de um artigo
       PaginaSintese.tsx   matriz e consultas sobre o conjunto
     componentes/          formulário, lista de buscas, progresso, tabela,
-                          modal, drawer
+                          modal, drawer, seletor de tema, markdown
 
 dados/                    gerado em execução, fora do git
   pdfs/                   PDFs baixados
@@ -375,6 +375,15 @@ resultado descartável de tela.
 O prompt também marca a origem de cada resposta (escrita por você, extraída por
 IA, ou as duas), para o modelo não tratar sugestão de máquina com o mesmo peso
 da sua leitura.
+
+O histórico de consultas é **paginado**, uma por vez, com as mesmas setas e
+números da matriz. Uma resposta passa de 4 mil caracteres; empilhar todas na
+mesma tela deixava a página com metros de rolagem.
+
+A resposta é renderizada como Markdown (títulos, listas, negrito, tabelas). O
+`react-markdown` monta elementos React em vez de injetar HTML, e **não**
+interpreta HTML cru sem o plugin `rehype-raw` — o que importa aqui, já que o
+texto é produzido por um modelo lendo PDFs de terceiros.
 
 > As sessões headless rodam de um **diretório neutro fora do projeto**. Rodando
 > na raiz, a CLI carrega a auto-memória daquele caminho, e anotações de

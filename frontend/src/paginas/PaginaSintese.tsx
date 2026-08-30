@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, ErroApi, urlCsvMatriz } from "../api";
+import { Markdown } from "../componentes/Markdown";
 import { SeletorTema } from "../componentes/SeletorTema";
 import type { Busca, ConsultaSintese, MatrizSintese } from "../tipos";
 
@@ -49,6 +50,7 @@ export function PaginaSintese() {
   const [pergunta, setPergunta] = useState("");
 
   const [indice, setIndice] = useState(0);
+  const [indiceConsulta, setIndiceConsulta] = useState(0);
   const [carregando, setCarregando] = useState(true);
   const [perguntando, setPerguntando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function PaginaSintese() {
       ]);
       setMatriz(m);
       setConsultas(c);
+      setIndiceConsulta(0);
     } catch (e) {
       if (e instanceof ErroApi) setErro(e.message);
     } finally {
@@ -94,6 +97,15 @@ export function PaginaSintese() {
     [totalPerguntas],
   );
 
+  const irParaConsulta = useCallback(
+    (destino: number) => {
+      const total = consultas.length;
+      if (total === 0) return;
+      setIndiceConsulta(((destino % total) + total) % total);
+    },
+    [consultas.length],
+  );
+
   // Setas do teclado tambem navegam, desde que o foco nao esteja num campo.
   useEffect(() => {
     function aoTeclar(evento: KeyboardEvent) {
@@ -117,6 +129,7 @@ export function PaginaSintese() {
         somenteAnalisados,
       );
       setConsultas((atuais) => [nova, ...atuais]);
+      setIndiceConsulta(0);
       setPergunta("");
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Falha ao consultar.");
@@ -129,7 +142,11 @@ export function PaginaSintese() {
     if (!window.confirm("Apagar esta consulta do histórico?")) return;
     try {
       await api.removerConsulta(id);
-      setConsultas((atuais) => atuais.filter((c) => c.id !== id));
+      setConsultas((atuais) => {
+        const restantes = atuais.filter((c) => c.id !== id);
+        setIndiceConsulta((i) => Math.max(0, Math.min(i, restantes.length - 1)));
+        return restantes;
+      });
     } catch (e) {
       if (e instanceof ErroApi) setErro(e.message);
     }
@@ -137,6 +154,7 @@ export function PaginaSintese() {
 
   const vazia = !matriz || matriz.total === 0;
   const atual = matriz?.perguntas[indice];
+  const consultaAtual = consultas[indiceConsulta];
 
   return (
     <div className="pagina pagina-larga">
@@ -343,25 +361,75 @@ export function PaginaSintese() {
         </div>
       </div>
 
-      {consultas.map((c) => (
-        <div className="cartao consulta" key={c.id}>
-          <div className="painel-topo">
-            <strong className="pergunta-feita">{c.pergunta}</strong>
-            <button className="botao-compacto perigo" onClick={() => remover(c.id)}>
-              Apagar
+      {consultaAtual && (
+        <div className="cartao consulta">
+          <div className="navegador-pergunta">
+            <button
+              onClick={() => irParaConsulta(indiceConsulta - 1)}
+              disabled={consultas.length < 2}
+              aria-label="Consulta anterior"
+              title="Consulta anterior"
+            >
+              ←
+            </button>
+            <div className="pergunta-atual">
+              <div className="meta">
+                Consulta {indiceConsulta + 1} de {consultas.length} ·{" "}
+                {new Date(
+                  consultaAtual.criado_em.endsWith("Z")
+                    ? consultaAtual.criado_em
+                    : `${consultaAtual.criado_em}Z`,
+                ).toLocaleString("pt-BR")}
+              </div>
+              <strong className="pergunta-feita">{consultaAtual.pergunta}</strong>
+            </div>
+            <button
+              onClick={() => irParaConsulta(indiceConsulta + 1)}
+              disabled={consultas.length < 2}
+              aria-label="Próxima consulta"
+              title="Próxima consulta"
+            >
+              →
             </button>
           </div>
-          <div className="resposta-sintese">{c.resposta}</div>
-          <div className="meta" style={{ marginTop: 10 }}>
-            {new Date(
-              c.criado_em.endsWith("Z") ? c.criado_em : `${c.criado_em}Z`,
-            ).toLocaleString("pt-BR")}{" "}
-            · {c.artigos_considerados} artigos
-            {c.modelo && ` · ${c.modelo}`}
-            {c.custo_usd ? ` · US$ ${c.custo_usd.toFixed(3)}` : ""}
+
+          {consultas.length > 1 && (
+            <div className="pontos-pergunta">
+              {consultas.map((c, i) => (
+                <button
+                  key={c.id}
+                  className={i === indiceConsulta ? "ativo" : undefined}
+                  onClick={() => irParaConsulta(i)}
+                  title={c.pergunta.slice(0, 90)}
+                  aria-label={`Ir para a consulta ${i + 1}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="resposta-sintese">
+            <Markdown>{consultaAtual.resposta}</Markdown>
+          </div>
+
+          <div className="rodape-consulta">
+            <span className="meta">
+              {consultaAtual.artigos_considerados} artigos
+              {consultaAtual.modelo && ` · ${consultaAtual.modelo}`}
+              {consultaAtual.custo_usd
+                ? ` · US$ ${consultaAtual.custo_usd.toFixed(3)}`
+                : ""}
+            </span>
+            <button
+              className="botao-compacto perigo"
+              onClick={() => remover(consultaAtual.id)}
+            >
+              Apagar esta consulta
+            </button>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }

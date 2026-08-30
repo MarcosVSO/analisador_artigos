@@ -833,7 +833,6 @@ table.matriz tbody tr:hover .coluna-fixa {
 
 .resposta-sintese {
   margin-top: 12px;
-  white-space: pre-wrap;
   line-height: 1.7;
   max-width: 900px;
 }
@@ -928,4 +927,120 @@ table.matriz.uma-pergunta .coluna-artigo {
 .celula-resposta {
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+/* --- rodape da consulta --- */
+.rodape-consulta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+}
+
+/* --- markdown das respostas da IA --- */
+.markdown > *:first-child {
+  margin-top: 0;
+}
+
+.markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  /* A regra global de `h3` no modal poe uppercase e cor fraca; aqui os
+     titulos sao os da propria resposta e precisam do texto normal. */
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--texto);
+  line-height: 1.35;
+  margin: 26px 0 10px;
+}
+
+.markdown h1 { font-size: 19px; }
+.markdown h2 { font-size: 17px; }
+.markdown h3 { font-size: 15px; }
+.markdown h4 { font-size: 14px; }
+
+.markdown p {
+  margin: 0 0 12px;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 12px;
+  padding-left: 24px;
+}
+
+.markdown li {
+  margin-bottom: 6px;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin-top: 6px;
+}
+
+.markdown strong {
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.markdown code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--fundo-codigo);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.markdown pre {
+  background: var(--fundo-codigo);
+  padding: 12px 14px;
+  border-radius: 7px;
+  overflow-x: auto;
+  margin: 0 0 12px;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown blockquote {
+  margin: 0 0 12px;
+  padding-left: 14px;
+  border-left: 3px solid var(--borda);
+  color: var(--texto-fraco);
+}
+
+.markdown table {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.markdown th,
+.markdown td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.markdown th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  color: var(--texto);
+  text-align: left;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--borda);
+  margin: 22px 0;
 }
