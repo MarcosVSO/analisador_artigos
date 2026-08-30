@@ -1,3 +1,17 @@
+/* ---------------------------------------------------------------------------
+   Temas
+   ---------------------------------------------------------------------------
+   Tres estados, guardados em `data-tema` no <html>:
+     ausente       -> segue o sistema operacional
+     "claro"       -> forca claro, mesmo com o SO no escuro
+     "escuro"      -> forca escuro, mesmo com o SO no claro
+
+   O bloco escuro aparece duas vezes de proposito. Um esta dentro do
+   @media, para o modo "sistema"; o outro fora, para a escolha explicita.
+   CSS nao permite reaproveitar um bloco de declaracoes entre um seletor
+   dentro de @media e outro fora dele.
+   --------------------------------------------------------------------------- */
+
 :root {
   --fundo: #f6f7f9;
   --superficie: #ffffff;
@@ -14,13 +28,16 @@
   --erro-texto: #7f1d1d;
   --neutro-fundo: #eef1f5;
   --neutro-texto: #475569;
+  --sombra-modal: rgba(0, 0, 0, 0.35);
+  --fundo-codigo: rgba(0, 0, 0, 0.06);
 
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Modo "sistema": escuro so quando o SO pede E voce nao forcou claro. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema="claro"]) {
     --fundo: #0f1215;
     --superficie: #171b20;
     --borda: #2a3038;
@@ -35,7 +52,37 @@
     --erro-texto: #fca5a5;
     --neutro-fundo: #232930;
     --neutro-texto: #9aa3af;
+    --sombra-modal: rgba(0, 0, 0, 0.55);
+    --fundo-codigo: rgba(255, 255, 255, 0.08);
+
+    color-scheme: dark;
   }
+}
+
+/* Escolha explicita: vale mesmo contra o SO. */
+:root[data-tema="escuro"] {
+  --fundo: #0f1215;
+  --superficie: #171b20;
+  --borda: #2a3038;
+  --texto: #e8eaed;
+  --texto-fraco: #9aa3af;
+  --acento: #3b82f6;
+  --ok-fundo: #14361f;
+  --ok-texto: #86efac;
+  --alerta-fundo: #3d2f0c;
+  --alerta-texto: #fcd34d;
+  --erro-fundo: #401717;
+  --erro-texto: #fca5a5;
+  --neutro-fundo: #232930;
+  --neutro-texto: #9aa3af;
+  --sombra-modal: rgba(0, 0, 0, 0.55);
+  --fundo-codigo: rgba(255, 255, 255, 0.08);
+
+  color-scheme: dark;
+}
+
+:root[data-tema="claro"] {
+  color-scheme: light;
 }
 
 * {
@@ -397,7 +444,7 @@ tbody tr:hover {
   max-height: 88vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 50px var(--sombra-modal);
 }
 
 .modal-cabecalho {
@@ -574,7 +621,7 @@ a {
   height: 100%;
   display: flex;
   flex-direction: column;
-  box-shadow: -18px 0 50px rgba(0, 0, 0, 0.35);
+  box-shadow: -18px 0 50px var(--sombra-modal);
 }
 
 .lista-perguntas {
@@ -720,7 +767,7 @@ label.botao-icone.anexar {
   font-size: 12px;
   line-height: 1.6;
   white-space: pre-wrap;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--fundo-codigo);
   padding: 10px 12px;
   border-radius: 6px;
 }
@@ -789,4 +836,96 @@ table.matriz tbody tr:hover .coluna-fixa {
   white-space: pre-wrap;
   line-height: 1.7;
   max-width: 900px;
+}
+
+/* --- seletor de tema --- */
+.seletor-tema {
+  display: inline-flex;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.seletor-tema button {
+  border: none;
+  border-radius: 0;
+  padding: 7px 11px;
+  font-size: 14px;
+  line-height: 1;
+  background: var(--superficie);
+  color: var(--texto-fraco);
+}
+
+.seletor-tema button + button {
+  border-left: 1px solid var(--borda);
+}
+
+.seletor-tema button.ativo {
+  background: var(--acento);
+  color: var(--acento-texto);
+}
+
+.seletor-tema button:hover:not(.ativo) {
+  color: var(--texto);
+  background: var(--fundo);
+}
+
+/* --- navegacao pergunta a pergunta na sintese --- */
+.navegador-pergunta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.navegador-pergunta > button {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+  padding: 10px 16px;
+}
+
+.pergunta-atual {
+  flex: 1;
+  min-width: 0;
+}
+
+.pergunta-atual h2 {
+  margin: 4px 0 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.pontos-pergunta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+
+.pontos-pergunta button {
+  padding: 3px 10px;
+  font-size: 12px;
+  min-width: 30px;
+}
+
+.pontos-pergunta button.ativo {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: var(--acento-texto);
+}
+
+table.matriz.uma-pergunta {
+  table-layout: auto;
+}
+
+table.matriz.uma-pergunta .coluna-artigo {
+  width: 30%;
+  min-width: 220px;
+}
+
+.celula-resposta {
+  white-space: pre-wrap;
+  line-height: 1.6;
 }

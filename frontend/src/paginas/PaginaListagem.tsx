@@ -9,6 +9,7 @@ import { FormularioBusca } from "../componentes/FormularioBusca";
 import { ListaBuscas } from "../componentes/ListaBuscas";
 import { ModalArtigo } from "../componentes/ModalArtigo";
 import { PainelProgresso } from "../componentes/PainelProgresso";
+import { SeletorTema } from "../componentes/SeletorTema";
 import { TabelaArtigos } from "../componentes/TabelaArtigos";
 import type {
   Artigo,
@@ -256,6 +257,7 @@ ${alvo.query}
             </p>
           </div>
           <div className="painel-acoes">
+            <SeletorTema />
             <Link className="botao-compacto" to="/sintese">
               Síntese da revisão
             </Link>

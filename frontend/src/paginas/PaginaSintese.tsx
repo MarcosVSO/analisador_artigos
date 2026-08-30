@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, ErroApi, urlCsvMatriz } from "../api";
+import { SeletorTema } from "../componentes/SeletorTema";
 import type { Busca, ConsultaSintese, MatrizSintese } from "../tipos";
 
 /** Perguntas prontas para o objetivo declarado: escrever um projeto de
@@ -47,6 +48,7 @@ export function PaginaSintese() {
   const [consultas, setConsultas] = useState<ConsultaSintese[]>([]);
   const [pergunta, setPergunta] = useState("");
 
+  const [indice, setIndice] = useState(0);
   const [carregando, setCarregando] = useState(true);
   const [perguntando, setPerguntando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -74,6 +76,35 @@ export function PaginaSintese() {
   useEffect(() => {
     void recarregar();
   }, [recarregar]);
+
+  const totalPerguntas = matriz?.perguntas.length ?? 0;
+
+  // Trocar de linha de pesquisa pode reduzir o numero de perguntas; sem isto
+  // o indice ficaria apontando para uma coluna que nao existe mais.
+  useEffect(() => {
+    setIndice((i) => (totalPerguntas === 0 ? 0 : Math.min(i, totalPerguntas - 1)));
+  }, [totalPerguntas]);
+
+  const irPara = useCallback(
+    (destino: number) => {
+      if (totalPerguntas === 0) return;
+      // Circular: da ultima, a seta direita volta para a primeira.
+      setIndice(((destino % totalPerguntas) + totalPerguntas) % totalPerguntas);
+    },
+    [totalPerguntas],
+  );
+
+  // Setas do teclado tambem navegam, desde que o foco nao esteja num campo.
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      const alvo = evento.target as HTMLElement | null;
+      if (alvo && /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName)) return;
+      if (evento.key === "ArrowLeft") irPara(indice - 1);
+      if (evento.key === "ArrowRight") irPara(indice + 1);
+    }
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [indice, irPara]);
 
   async function perguntar() {
     if (pergunta.trim().length < 5) return;
@@ -105,6 +136,7 @@ export function PaginaSintese() {
   }
 
   const vazia = !matriz || matriz.total === 0;
+  const atual = matriz?.perguntas[indice];
 
   return (
     <div className="pagina pagina-larga">
@@ -113,7 +145,10 @@ export function PaginaSintese() {
       </div>
 
       <header className="cabecalho">
-        <h1>Síntese da revisão</h1>
+        <div className="cabecalho-topo">
+          <h1>Síntese da revisão</h1>
+          <SeletorTema />
+        </div>
         <p>
           Os artigos analisados e suas respostas, lado a lado. As perguntas
           abaixo são respondidas <strong>com base nesta matriz</strong> — não na
@@ -177,52 +212,82 @@ export function PaginaSintese() {
           na tela de perguntas.
         </div>
       ) : (
-        matriz && (
+        matriz &&
+        atual && (
           <div className="cartao">
-            <div className="rolagem">
-              <table className="matriz">
-                <thead>
-                  <tr>
-                    <th className="coluna-fixa">Artigo</th>
-                    {matriz.perguntas.map((p) => (
-                      <th key={p.id} title={p.texto}>
-                        {p.texto}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {matriz.artigos.map((a) => (
-                    <tr key={a.artigo_id}>
-                      <td className="coluna-fixa">
-                        <Link
-                          to={`/artigos/${a.artigo_id}/perguntas`}
-                          className="titulo-artigo"
-                        >
-                          {a.titulo}
-                        </Link>
-                        <div className="meta">
-                          {a.autores[0] ?? "—"}
-                          {a.ano && ` · ${a.ano}`}
-                        </div>
-                      </td>
-                      {matriz.perguntas.map((p) => (
-                        <td key={p.id}>
-                          <div className="celula-matriz">
-                            {a.respostas[p.id]?.trim() || (
-                              <span className="meta">—</span>
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="navegador-pergunta">
+              <button
+                onClick={() => irPara(indice - 1)}
+                aria-label="Pergunta anterior"
+                title="Pergunta anterior (seta ←)"
+              >
+                ←
+              </button>
+              <div className="pergunta-atual">
+                <div className="meta">
+                  Pergunta {indice + 1} de {totalPerguntas}
+                </div>
+                <h2>{atual.texto}</h2>
+              </div>
+              <button
+                onClick={() => irPara(indice + 1)}
+                aria-label="Próxima pergunta"
+                title="Próxima pergunta (seta →)"
+              >
+                →
+              </button>
             </div>
+
+            <div className="pontos-pergunta">
+              {matriz.perguntas.map((p, i) => (
+                <button
+                  key={p.id}
+                  className={i === indice ? "ativo" : undefined}
+                  onClick={() => irPara(i)}
+                  title={p.texto}
+                  aria-label={`Ir para a pergunta ${i + 1}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+
+            <table className="matriz uma-pergunta">
+              <thead>
+                <tr>
+                  <th>Artigo</th>
+                  <th>Resposta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matriz.artigos.map((a) => (
+                  <tr key={a.artigo_id}>
+                    <td className="coluna-artigo">
+                      <Link
+                        to={`/artigos/${a.artigo_id}/perguntas`}
+                        className="titulo-artigo"
+                      >
+                        {a.titulo}
+                      </Link>
+                      <div className="meta">
+                        {a.autores[0] ?? "—"}
+                        {a.ano && ` · ${a.ano}`}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="celula-resposta">
+                        {a.respostas[atual.id]?.trim() || (
+                          <span className="meta">— sem resposta</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             <div className="rodape-tabela">
-              Clique no título para abrir a tela de respostas do artigo. Células
-              longas rolam sozinhas.
+              Use as setas ← → do teclado para trocar de pergunta. Clique no
+              título para abrir a tela de respostas do artigo.
             </div>
           </div>
         )

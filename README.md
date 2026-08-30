@@ -226,6 +226,15 @@ envio interrompido não deixe um PDF truncado no lugar.
 
 ---
 
+## Tema
+
+O seletor no topo tem três estados: **claro**, **escuro** e **seguir o
+sistema** (padrão). A escolha fica no `localStorage` e é aplicada por um script
+no `index.html` **antes** do React montar — sem isso a página apareceria no tema
+do sistema por um instante antes de trocar.
+
+---
+
 ## Perguntas de pesquisa
 
 O botão **Perguntas de pesquisa**, no topo, abre um drawer para criar, editar
@@ -340,8 +349,13 @@ mostra o passo a passo quando o pré-requisito do modo não está atendido.
 ## Síntese da revisão
 
 A página **Síntese da revisão** (link no topo da listagem, ou `/sintese`) mostra
-os artigos analisados e suas respostas lado a lado — artigos nas linhas,
-perguntas nas colunas, primeira coluna fixa ao rolar.
+**uma pergunta por vez**: o enunciado no topo, e abaixo a resposta de cada
+artigo a ela. Navegue com as setas ← →, pelos números, ou pelas setas do
+teclado — que ficam inertes enquanto o foco está num campo de texto.
+
+Comparar 8 perguntas × N artigos numa grade só exige rolagem nos dois eixos e
+perde o contexto da coluna. Uma pergunta por vez é a leitura que serve para
+escrever: você lê o que todos os artigos dizem sobre *um* ponto.
 
 Dá para filtrar por linha de pesquisa, alternar entre "só analisados" e "todos",
 e **exportar em CSV** (com BOM, para o Excel abrir os acentos certos).
