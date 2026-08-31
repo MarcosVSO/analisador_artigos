@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { api, ErroApi, urlCsvMatriz } from "../api";
+import { api, ErroApi, urlExportacaoMatriz } from "../api";
 import { Markdown } from "../componentes/Markdown";
 import { SeletorTema } from "../componentes/SeletorTema";
 import type { Busca, ConsultaSintese, MatrizSintese } from "../tipos";
@@ -205,13 +205,23 @@ export function PaginaSintese() {
             </select>
           </div>
           <div>
-            <a
-              className="botao-compacto"
-              href={urlCsvMatriz(buscaId, somenteAnalisados)}
-              title="Baixar a matriz em CSV para a planilha"
-            >
-              Exportar CSV
-            </a>
+            <label>Exportar</label>
+            <div className="painel-acoes">
+              <a
+                className="botao-compacto"
+                href={urlExportacaoMatriz("xlsx", buscaId, somenteAnalisados)}
+                title="Planilha do Excel, já formatada para leitura"
+              >
+                XLSX
+              </a>
+              <a
+                className="botao-compacto"
+                href={urlExportacaoMatriz("csv", buscaId, somenteAnalisados)}
+                title="CSV separado por ponto e vírgula"
+              >
+                CSV
+              </a>
+            </div>
           </div>
         </div>
         <div className="meta" style={{ marginTop: 10 }}>

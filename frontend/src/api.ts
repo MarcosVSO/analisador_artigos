@@ -197,8 +197,9 @@ export const api = {
     }),
 };
 
-/** URL do CSV da matriz. Link direto, para o browser baixar o arquivo. */
-export const urlCsvMatriz = (
+/** URL de exportação da matriz. Link direto, para o browser baixar. */
+export const urlExportacaoMatriz = (
+  formato: "csv" | "xlsx",
   buscaId: number | null,
   somenteAnalisados: boolean,
 ) => {
@@ -206,7 +207,7 @@ export const urlCsvMatriz = (
     somente_analisados: String(somenteAnalisados),
   });
   if (buscaId !== null) params.set("busca_id", String(buscaId));
-  return `/api/sintese/csv?${params}`;
+  return `/api/sintese/${formato}?${params}`;
 };
 
 /** URL do PDF servido pelo backend. `anexo` forca salvar em vez de abrir. */

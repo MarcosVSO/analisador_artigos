@@ -15,7 +15,7 @@ from ..esquemas import (
     MatrizSintese,
     PedidoConsulta,
 )
-from ..modelos import Consulta
+from ..modelos import Busca, Consulta
 from ..servicos import sintese
 
 roteador = APIRouter(prefix="/api/sintese", tags=["sintese"])
@@ -50,6 +50,41 @@ def exportar_csv(
         headers={
             "Content-Disposition": (
                 f'attachment; filename="matriz_sintese_{carimbo}.csv"'
+            )
+        },
+    )
+
+
+@roteador.get("/xlsx")
+def exportar_xlsx(
+    busca_id: int | None = None,
+    somente_analisados: bool = True,
+    sessao: Session = Depends(obter_sessao),
+) -> Response:
+    """Matriz em .xlsx, ja formatada para leitura."""
+    matriz = sintese.montar_matriz(sessao, busca_id, somente_analisados)
+    if not matriz["artigos"]:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Nao ha artigos para exportar."
+        )
+
+    escopo = "Somente artigos analisados" if somente_analisados else "Todos os artigos"
+    if busca_id is not None:
+        busca = sessao.get(Busca, busca_id)
+        if busca is not None:
+            escopo += f" — linha de pesquisa: {busca.query}"
+    else:
+        escopo += " — todas as linhas de pesquisa"
+
+    carimbo = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    return Response(
+        content=sintese.matriz_para_xlsx(matriz, escopo),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="matriz_sintese_{carimbo}.xlsx"'
             )
         },
     )

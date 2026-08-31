@@ -357,8 +357,16 @@ Comparar 8 perguntas × N artigos numa grade só exige rolagem nos dois eixos e
 perde o contexto da coluna. Uma pergunta por vez é a leitura que serve para
 escrever: você lê o que todos os artigos dizem sobre *um* ponto.
 
-Dá para filtrar por linha de pesquisa, alternar entre "só analisados" e "todos",
-e **exportar em CSV** (com BOM, para o Excel abrir os acentos certos).
+Dá para filtrar por linha de pesquisa e alternar entre "só analisados" e
+"todos". Os dois botões de exportação respeitam esses filtros.
+
+| Formato | O que traz |
+|---|---|
+| **XLSX** | Duas abas. `Matriz` com cabeçalho congelado, primeira coluna fixa, autofiltro, texto quebrado e larguras ajustadas. `Resumo` com a procedência: data, escopo, contagens e as perguntas por extenso |
+| **CSV** | Separado por `;`, com BOM para o Excel abrir os acentos certos |
+
+A aba `Resumo` existe porque a planilha circula solta do sistema. Sem o registro
+de qual recorte a gerou, ninguém consegue dizer meses depois de onde ela veio.
 
 ### Perguntar sobre o conjunto
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -265,3 +266,101 @@ def _perguntar_via_api(prompt: str) -> tuple[str, dict[str, Any]]:
         "tokens_saida": saida,
         "custo_usd": entrada / 1_000_000 * 5.0 + saida / 1_000_000 * 25.0,
     }
+
+
+# --- Exportacao para planilha ---------------------------------------------
+
+# Largura das colunas em "caracteres" do Excel. As respostas sao textos de
+# varias frases, entao precisam de bem mais espaco que os metadados.
+LARGURA_TITULO = 46
+LARGURA_META = 16
+LARGURA_RESPOSTA = 52
+
+
+def matriz_para_xlsx(matriz: dict[str, Any], escopo: str) -> bytes:
+    """Gera o .xlsx da matriz.
+
+    Duas abas: `Matriz` com os dados e `Resumo` com a procedencia (quando foi
+    exportado, que filtro estava ligado, quantos artigos). Numa dissertacao a
+    planilha circula solta do sistema, e sem esse registro ninguem consegue
+    dizer de qual recorte ela saiu.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    livro = Workbook()
+    aba = livro.active
+    aba.title = "Matriz"
+
+    colunas_meta = ["Título", "Autores", "Ano", "Veículo", "DOI"]
+    cabecalho = colunas_meta + [p["texto"] for p in matriz["perguntas"]]
+    aba.append(cabecalho)
+
+    fundo = PatternFill("solid", fgColor="1F2937")
+    for indice, _ in enumerate(cabecalho, start=1):
+        celula = aba.cell(row=1, column=indice)
+        celula.font = Font(bold=True, color="FFFFFF")
+        celula.fill = fundo
+        celula.alignment = Alignment(vertical="top", wrap_text=True)
+
+    for linha in matriz["artigos"]:
+        aba.append(
+            [
+                linha["titulo"],
+                "; ".join(linha["autores"]),
+                linha["ano"] or "",
+                linha["venue"] or "",
+                linha["doi"] or "",
+                *[linha["respostas"].get(p["id"], "") for p in matriz["perguntas"]],
+            ]
+        )
+
+    # Texto quebrado e alinhado no topo: sem isso uma resposta de mil
+    # caracteres vira uma linha unica cortada na borda da coluna.
+    alinhamento = Alignment(vertical="top", wrap_text=True)
+    for fileira in aba.iter_rows(min_row=2):
+        for celula in fileira:
+            celula.alignment = alinhamento
+
+    for indice in range(1, len(cabecalho) + 1):
+        letra = get_column_letter(indice)
+        if indice == 1:
+            aba.column_dimensions[letra].width = LARGURA_TITULO
+        elif indice <= len(colunas_meta):
+            aba.column_dimensions[letra].width = LARGURA_META
+        else:
+            aba.column_dimensions[letra].width = LARGURA_RESPOSTA
+
+    # Congela o cabecalho e a coluna do titulo: rolando ate a 8a pergunta,
+    # da para continuar vendo de qual artigo e a linha.
+    aba.freeze_panes = "B2"
+    aba.auto_filter.ref = (
+        f"A1:{get_column_letter(len(cabecalho))}{aba.max_row}"
+    )
+
+    resumo = livro.create_sheet("Resumo")
+    resumo.column_dimensions["A"].width = 24
+    resumo.column_dimensions["B"].width = 96
+    linhas_resumo = [
+        ("Exportado em", datetime.now(timezone.utc).astimezone().strftime("%d/%m/%Y %H:%M")),
+        ("Escopo", escopo),
+        ("Artigos", len(matriz["artigos"])),
+        ("Perguntas", len(matriz["perguntas"])),
+        ("", ""),
+        ("Perguntas de pesquisa", ""),
+    ]
+    for rotulo, valor in linhas_resumo:
+        resumo.append([rotulo, valor])
+    for indice, pergunta in enumerate(matriz["perguntas"], start=1):
+        resumo.append([f"{indice}.", pergunta["texto"]])
+
+    for fileira in resumo.iter_rows():
+        for celula in fileira:
+            celula.alignment = Alignment(vertical="top", wrap_text=True)
+    for indice in (1, 6):
+        resumo.cell(row=indice, column=1).font = Font(bold=True)
+
+    fluxo = io.BytesIO()
+    livro.save(fluxo)
+    return fluxo.getvalue()
